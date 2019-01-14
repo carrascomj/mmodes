@@ -12,16 +12,7 @@ $ sudo python3 setup.py install
 
 Example script simulation
 -------------
-On python:
-import mmodes
-# 1) instantiate Consortium
-cons = mmodes.Consortium(stcut = -100, mets_to_plot = ["glc_D[e]", "pi[e]"])
-# 2) add models
-cons.add_model("ModelsInput/BGN4_eu.xml", 0.001)
-cons.add_model("ModelsInput/Fae_ok.xml", 0.001)
-# 3) instantiate dMetabolites
-# coming soon...
-# 4) instantiate media
-cons.media = cons.set_media(media)
-# 5) Run it
-cons.run(verbose=True)
+An example.py with one strain is provided on "example.py"
+I recommend to work on a virtualenv since the package uses the latest python3
+versions of the modules required. 
+More information about vrirtualenvs here: https://www.configserverfirewall.com/ubuntu-linux/create-python-virtualenv-ubuntu/
