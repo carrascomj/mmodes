@@ -7,8 +7,7 @@ of metabolic models consortia using coprapy and scipy.
 Installation
 -------------
 On a Linux shell:
-$ cd path_to_mmodes/mmodes
-$ sudo python3 setup.py install
+$ cd path_to_mmodes/mmodes; sudo python3 setup.py install
 
 Example script simulation
 -------------
