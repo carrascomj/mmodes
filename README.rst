@@ -1,7 +1,6 @@
-mmodes (Metabolic Models based Ordinary Differential Equations Simulation)
+MMODES
 #########################
-The package provides an straight-forward framework to run dynamic simulations
-of metabolic models consortia using cobrapy and scipy.
+MMODES (Metabolic Models based Ordinary Differential Equations Simulation) provides an straight-forward framework to run dynamic simulations of metabolic models consortia using cobrapy and scipy. The general schema of the script was taken from https://github.com/libretro/daphne/tree/master/daphne , though it was simplied and rebuilt for a general case. It also provides I/O utilities to generate COMETS-like inputs and outputs and manage lenguage of models extracellular metabolites.
 
 Installation
 -------------
