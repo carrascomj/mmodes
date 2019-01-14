@@ -1,4 +1,6 @@
 mmodes
+#########################
+
 Metabolic Models based Ordinary Differential Equations Simulation
 -------------
 The package provides an straight-forward framework to run dynamic simulations
