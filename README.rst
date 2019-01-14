@@ -1,4 +1,4 @@
-mmodes
+mmodes (Metabolic Models based Ordinary Differential Equations Simulation)
 #########################
 
 Metabolic Models based Ordinary Differential Equations Simulation
