@@ -1,7 +1,7 @@
 mmodes (Metabolic Models based Ordinary Differential Equations Simulation)
 #########################
 The package provides an straight-forward framework to run dynamic simulations
-of metabolic models consortia using coprapy and scipy.
+of metabolic models consortia using cobrapy and scipy.
 
 Installation
 -------------
