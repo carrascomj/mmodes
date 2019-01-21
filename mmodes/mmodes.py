@@ -219,14 +219,14 @@ class Consortium():
 
     def add_mets(self, pert, concentration = False):
         """ Adds a perturbation to media
-        INPUT -> pert, dict met.id : concentration"""
-        # TODO: maybe it'd be nice to do it as in set_media throwing a warning
-        # if metabolite isn't in media (and won't be added to it).
-        if concentration:
-            pert = {k: float(pert[k])*self.v+self.media[k] for k in pert}
-        else:
-            pert = {k: float(pert[k])+self.media[k] for k in pert}
-        self.media.update(pert)
+        INPUT -> pert, dict met.id : concentration/quantity"""
+        v = self.v if concentration else 1
+        for met in pert:
+            if met in self.media:
+                self.media[met] += float(pert[met])*v
+            else:
+                # TODO: use a custom warning class MediaWarning
+                warnings.warn("\nMetabolite "+met+" wasn't added to media.")
         return
 
     def set_media(self, media, concentration = False):
@@ -235,15 +235,13 @@ class Consortium():
         INPUT -> media, dict of inital concentrations in media,
             concentration -> bool, True in 1st call, to multiply per volume
         OUPUT -> media0, dict of all extracellular metabolites initialized """
-        # TODO: work on units
         media0 = {}
         if self.models: # empty sequences are false...
+            v = self.v if concentration else 1
             ex_mets = self.cobrunion()
             for met in ex_mets:
                 if met in media:
-                    media0[met] = float(media[met])
-                    if concentration:
-                        media0[met] = media0[met]*self.v
+                    media0[met] = float(media[met])*v
                 else:
                     media0[met] = 0
         return media0
@@ -267,9 +265,6 @@ class Consortium():
         INPUT -> t: timestep, just to compute refresment of media
                dC
         OUPUT -> numpy array ([dBM/dt]+[dCj/dt]])"""
-        # TODO: should write a COMETS-like manifest with fluxes, etc.
-        # The main reason to preserve format is to run in VisAnt, therefore it
-        # isn't urgent at all.
         dBMdt = {k: 0 for k in self.models}
         ran_mods_id = [k for k in dBMdt]
         random.shuffle(ran_mods_id) # to randomly iterate over models
@@ -497,7 +492,7 @@ class Consortium():
                     ax1.tick_params('y')
                     ax2 = ax1.twinx()
                 s2 = to_plot[col]
-                ax2.plot(t, s2, colors_hex[i])
+                ax2.plot(t, s2, colors_hex[i], linestyle='--')
                 # Maybe I should put the axis on black...
                 ax2.set_ylabel('metabolites (mmol/L)')
                 ax2.tick_params('y')
