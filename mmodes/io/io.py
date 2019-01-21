@@ -10,6 +10,7 @@
 import cobra
 from decimal import Decimal
 import os
+import re
 
 class ImplementationError(Exception):
     """ If Manifest was instantiated without models, raise (Implementation error,
