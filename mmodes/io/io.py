@@ -228,7 +228,7 @@ def write_layout(files_model, ex_mets, media, biomasses, outfile = "Consortium_l
               media: dictionary of metabolite:concentration
               dictionary of files_model:initial biomass
               ... some of the COMETS parameters, that are described in http://www.bu.edu/segrelab/comets-parameters/
-    OUPUTS -> creates a COMETS layout in "Consortium_layout.txt""""
+    OUPUTS -> creates a COMETS layout in "Consortium_layout.txt"""
     # It's important to notice that name of model files are assigned in terms of
     # model.description. If models are saved without it, the assignment is ASCII
     # ordered.
