@@ -109,15 +109,18 @@ class Manifest():
 
 # Some util functions to manage data
 
-def find_models(dir_models):
+def find_models(dir_models, just_path = False):
     """Find models in "dir_models" path
-    INPUT -> path to models directory (string)
+    INPUTS -> dir_models: path to models directory (string)
+            just_path: bool, True if just outputs a string with the path.
     OUPUT -> list of model objects"""
     path_models = []
     for file in os.listdir(dir_models):
         # Find all sbml or matlab models and exclude comets models
         if (file.find("xml") != -1 or file.find("mat") != -1) and file.find("xml.cmt") == -1:
             path_models.append(dir_models+file)
+    if just_path:
+        return path_models
     models = []
     strain_number = 1
     for mod in path_models:
