@@ -287,6 +287,10 @@ class Consortium():
             # use model as a context, to restore possible changes in bounds later
             # I guess it breaks backwards compatibility with cobra versions but it's lighter.
             org = self.models[mID]
+            if not org.volume.q:
+                # Biomass of organism = 0
+                dBMdt[mID] = 0
+                continue
             with org.model as mod:
                 # 2) Updates lower bounds
                 for met in copy_media:
