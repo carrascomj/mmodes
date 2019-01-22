@@ -412,7 +412,7 @@ class Consortium():
             self.manifest = self.get_manifest(self.manifest)
 
         # 2. ODE solver loop.
-        while not self.stopDFBA[0] and self.T[-1]<maxT and step < nMaxSteps:
+        while not self.stopDFBA[0] and self.T[-1] < maxT and step < nMaxSteps:
             # 2.1. Advances in solver
             step += 1
             solver.integrate(maxT, step=True)
@@ -445,7 +445,7 @@ class Consortium():
                 line1 = ""
                 i = 1
                 for mod in sorted(self.models):
-                    line1 += mod+"\t" if mod != "" else "biomass"+i+"\t"
+                    line1 += mod+"\t" if mod != "" else "biomass"+srt(i)+"\t"
                     i += 1
                 self.orgs_to_plot = line1.split(sep = "\t")[:-1]
                 for met in sorted(self.media):
