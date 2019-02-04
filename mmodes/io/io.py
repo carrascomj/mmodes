@@ -423,7 +423,7 @@ def parse_flux(ff, t = 10, st = 2):
             t: int, time to extract
             st: int, number of strain
     OUTPUT -> string, fluxes separated by ' ' """
-    p = re.compile(r'^fluxes\{'+str(t)+r'\}\{\d+\}\{\d+\}\{'+str(st)+r'\} = \[(.+)\]')
+    p = re.compile(r'^fluxes\{'+str(t)+r'\}\{\d+\}\{\d+\}\{'+str(st)+r'\} = \[(.+) ?\]')
     with open(ff) as f:
         for line in f.readlines():
             match = p.search(line)
@@ -434,28 +434,27 @@ def parse_flux(ff, t = 10, st = 2):
             print("No matched string")
             return ""
 
-def write_flux_line(cha, mod, outp):
+def write_flux_line(cha, mod, outp, sep = "\t"):
     """ Write tsv with reactions and fluxes from 'cha'
     INPUTS -> cha: str, from comets flux log
-            mod: str, path to model
+            mod: str, path to model (or cobra model object)
             outp: str, path to output"""
     # Prepare input
-    fluxes = cha.split(sep=' ')
-    fluxes.pop()
-    fluxes = [float(i) for i in fluxes]
-    try:
-        model = cobra.io.load_matlab_model(mod)
-    except:
-        model = cobra.io.read_sbml_model(mod)
-    if not os.path.isfile("plot.tsv"):
-        # write header
-        line1 = ""
-        for i in range(len(fluxes)):
-            line1 += model.reactions[i].id+"\t"
+    fluxes = cha.replace(r' ', sep)
+    if not os.path.isfile(outp):
+        # if 1st call, write header
+        # TODO: this would be better written as a new convenient load_model function
+        if hasattr(mod, "metabolites"):
+            # A cobra model was passed as argument
+            model = mod
+        else:
+            # A path was passed as argument
+            try:
+                model = cobra.io.read_sbml_model(mod)
+            except:
+                model = cobra.io.load_matlab_model(mod)
+        line1 = "\t".join([reac.id for reac in model.reactions])
         with open(outp, "w") as f:
             f.write(line1+"\n")
-    line = ""
-    for i in range(len(fluxes)):
-        line = fluxes[i] + "\t"
-        with open(outp, "a") as f:
-            f1.write(line)
+    with open(outp, "a") as f:
+        f.write(fluxes+"\n")
