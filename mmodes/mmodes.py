@@ -65,10 +65,11 @@ class Volume():
         return self.bm.value*self.q
 
 class dModel():
-    def __init__(self, mod_path, volume_0, solver = "glpk", method = "pfba", dMets = {}):
+    def __init__(self, mod_path, volume_0, solver = "glpk", method = "pfba", dMets = {}, work_based_on = "id"):
         self.path = mod_path
         self.model = self.load_model() # cobra model
         self.volume = Volume(volume_0, self.model) # volume object
+        self.identifier = work_based_on.lower()
         self.exchanges = self.get_exchange_reactions() # dict met:exchange reactio
         self.dMets = dMets
         self.model.solver = solver
@@ -99,11 +100,13 @@ class dModel():
         provides a fix as a dictionary.
         OUPUT -> dictionary, metabolite: exchange reactions"""
         dic_out = {}
-        for reac in self.model.reactions:
-            if reac.id.find("EX_") != -1:
+        for reac in self.model.exchanges:
                 for met in reac.metabolites:
-                    if met.id.find("biomass") == -1: #strange metabolite in some models
-                        dic_out[met.id] = reac.id
+                    if met.id.find("biomass") == -1 and met.compartment == "e": #strange metabolite in some models
+                        if self.identifier == "name":
+                            dic_out[met.name] = reac.id
+                        else:
+                            dic_out[met.id] = reac.id
         return dic_out
 
     def free_media(self):
@@ -141,10 +144,14 @@ class dModel():
                     mod.optimize()
                 except:
                     raise InfeasibleSolution("FBA is infeasiable for model "+mod.id+". You may want to check your model.")
+
     def add_dMet(self, met):
         """ Adds a dMetabolite to self.dMets
         INPUT -> met, dMetabolite object"""
-        self.dMets[met.id] = met
+        if self.identifier == "name":
+            self.dMets[met.name] = met
+        else:
+            self.dMets[met.id] = met
         return
 
 class dMetabolite():
@@ -168,7 +175,7 @@ class dMetabolite():
         return ref
 
 class Consortium():
-    def __init__(self, media = {}, models = {}, max_growth = 10, death_rate = 0, v = 1, timeStep = 0.1, mets_def = [], defaultKm = 0.01, defaultVmax = 20, stcut = 1e-4, title = "draft_cons", mets_to_plot = [], manifest = ""):
+    def __init__(self, media = {}, models = {}, max_growth = 10, death_rate = 0, v = 1, timeStep = 0.1, mets_def = [], defaultKm = 0.01, defaultVmax = 20, stcut = 1e-4, title = "draft_cons", mets_to_plot = [], work_based_on = "id", manifest = ""):
         self.models = models
         self.media = self.set_media(media, concentration = True) # dict met.id : concentration
         self.max_growth = max_growth
@@ -184,6 +191,10 @@ class Consortium():
         self.mets_to_plot = mets_to_plot
         self.orgs_to_plot = ""
         self.manifest = manifest
+        self.identifier = work_based_on.lower()
+        if self.identifier in ("name", "names"):
+            self.identifier = "name"
+            self.cobrunion = self.cobrunion_names
         return
 
     def set_dMetabolites(self, mets):
@@ -208,9 +219,23 @@ class Consortium():
                     ex_mets.add(met.id)
         return ex_mets
 
+    def cobrunion_names(self):
+        """ Union of metabolites of the models as a list (name version)
+        OUPUT -> list of union of extracellular metabolites"""
+        models = self.models.values()
+        ex_mets = set()
+        for model in models:
+            for met in model.model.metabolites:
+                if not met.compartment:
+                    print(met.id, "with name", met.name, "haven't got an specified compartment attribute.")
+                    print("You may run as work_based_on='id'")
+                else:
+                    ex_mets.add(met.name)
+        return ex_mets
+
     def add_model(self, mod_path, volume_0, solver = "glpk", method = "pfba", dMets = {}):
         """ Adds a model to the consortium """
-        mod = dModel(mod_path, volume_0 * self.v, solver, method, dMets)
+        mod = dModel(mod_path, volume_0 * self.v, solver, method, dMets, work_based_on = self.identifier)
         self.models[mod.model.id] = mod
         # If metabolite already in another model, refresh value will be replaced
         self.mets_def.update(mod.dMets)
@@ -329,9 +354,9 @@ class Consortium():
                 self.models[mod].volume.q = 0
                 del(s[0])
             if self.models[mod].volume.q > self.max_growth:
-                self.stopDFBA = (True, "\nMax growth reached at "+str(self.T[-1])+"hours")
+                self.stopDFBA = (True, "\nMax growth reached at "+str(self.T[-1])+" hours")
             elif self.models[mod].stuck:
-                self.stopDFBA = (True, "\npFBA infeasible at "+str(self.T[-1])+"hours")
+                self.stopDFBA = (True, "\npFBA infeasible at "+str(self.T[-1])+" hours")
         for met in sorted(self.media):
             if s[0] > 0:
                 self.media[met] = s.pop(0)
@@ -493,7 +518,6 @@ class Consortium():
                     ax2 = ax1.twinx()
                 s2 = to_plot[col]
                 ax2.plot(t, s2, colors_hex[i], linestyle='--')
-                # Maybe I should put the axis on black...
                 ax2.set_ylabel('metabolites (mmol/L)')
                 ax2.tick_params('y')
             i += 1
