@@ -326,7 +326,7 @@ class Consortium():
                     else:
                         # dMetabolites has specific Vmax, Km
                         mod.reactions.get_by_id(org.exchanges[met]).lower_bound = self.mm(copy_media[met],org.dMets[met].Vmax, org.dMets[met].Km)
-                # 3) Run pFBA and update volume (it will be updated properly later)
+                # 3) Run pFBA and update volume (it will be properly updated later)
                 org.opt(mod)
                 if self.manifest:
                     self.manifest.write_fluxes(mod, self.T[-1])
@@ -502,7 +502,7 @@ class Consortium():
         for col in to_plot:
             if col not in self.mets_to_plot and col not in self.orgs_to_plot and col != "time":
                 del to_plot[col]
-        to_plot = to_plot / self.v # return concentrations
+        to_plot.loc[:, to_plot.columns != 'time'] = to_plot.loc[:, to_plot.columns != 'time'] / self.v # return concentrations
         fig, ax1 = plt.subplots()
         t = to_plot.time
         i = 0
