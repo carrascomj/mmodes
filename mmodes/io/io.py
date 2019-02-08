@@ -44,7 +44,7 @@ class Manifest():
     def get_models(self, models):
         """ Getter of models attribute
         INPUT -> models: dict
-        OUPUT -> models: dictionary of model.id : [cobra_model, 0] """
+        OUPUT -> models: dictionary of model.id : [cobra_model, 0, num_model] """
         if not models:
             raise ImplementationError("You haven't passed models to Manifest!")
         elif isinstance(models, dict):
@@ -99,8 +99,7 @@ class Manifest():
             self.T += 1
             self.curr_t = t
         if self.T == self.models[model.id][1]:
-            # We're just taking the 1st call of each time value (just because
-            # it's easier, maybe it should be implemented as mean value)
+            # We're just taking the 1st call of each time value
             return
         else:
             self.models[model.id][1] = self.T
@@ -457,4 +456,4 @@ def write_flux_line(cha, mod, outp, sep = "\t"):
         with open(outp, "w") as f:
             f.write(line1+"\n")
     with open(outp, "a") as f:
-        f.write(fluxes+"\n")
+        f.write(fluxes[:-1]+"\n")
