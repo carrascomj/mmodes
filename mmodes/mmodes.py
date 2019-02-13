@@ -130,6 +130,7 @@ class dModel():
                 self.stuck = True
         elif self.method == "fba":
             mod.optimize()
+        # print("Biomass of "+mod.id+" "+str(mod.reactions.Biomass.flux)) ############ DEBUG ############
         return
 
     def check_feasible(self):
@@ -330,7 +331,11 @@ class Consortium():
                 org.opt(mod)
                 if self.manifest:
                     self.manifest.write_fluxes(mod, self.T[-1])
-                dBMdt[mID] = org.volume.q*mod.reactions.get_by_id(org.volume.bm).flux - self.death_rate*org.volume.q
+                if mod.reactions.get_by_id(org.volume.bm).flux > 0:
+                    dBMdt[mID] = org.volume.q*mod.reactions.get_by_id(org.volume.bm).flux - self.death_rate*org.volume.q
+                else:
+                    # wrong behaviour
+                    dBMdt[mID] = 0
                 # 4) Updates media with fluxes (just for the next organisms bounds, media
                 # will be updated later in the ODE execution, self.update_true_ode)
                 for met, reac in org.exchanges.items():
@@ -529,7 +534,7 @@ class Consortium():
         return
 
 class ProBar():
-    """ Just a simple object progress bar to output on screen """
+    """ Just a simple progress bar object to output on screen """
     def __init__(self, n, blength = 20):
         self.n = n
         self.blength = 20

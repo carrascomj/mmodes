@@ -28,6 +28,7 @@ class Manifest():
         self.media = self.get_media(media)
         self.T = 0
         self.curr_t = 0
+        self.first = 0
         self.write_manifest()
 
     def write_manifest(self):
@@ -36,8 +37,8 @@ class Manifest():
             f.write("LayoutFileName: no_lay.txt\n")
             for mod in sorted(self.models):
                 f.write("ModelFileName: "+self.models[mod][0].path+"\n")
-            f.write("FluxFileName: "+self.fmedia+"\n")
-            f.write("MediaFileName: "+self.fflux+"\n")
+            f.write("FluxFileName: "+self.fflux+"\n")
+            f.write("MediaFileName: "+self.fmedia+"\n")
             f.write("TotalBiomassFileName: "+self.fbiom+"\n")
         return
 
@@ -82,7 +83,6 @@ class Manifest():
             for met in sorted(self.media):
                 line += "media_"+str(self.T)+"{"+str(i)+"} = sparse(zeros(1,1));\n"
                 if float(self.media[met]) != 0:
-                    # TODO: check this
                     line += "media_"+str(self.T)+"{"+str(i)+"}(1, 1) = "+str('%.2E' % Decimal(self.media[met]))+";\n"
                 i+=1
             f.write(line)
@@ -98,10 +98,9 @@ class Manifest():
             # managing of time value is a bit tricky
             self.T += 1
             self.curr_t = t
-        if self.T == self.models[model.id][1]:
-            # We're just taking the 1st call of each time value
-            return
-        else:
+        if self.T != self.models[model.id][1] or self.first < 2:
+            # 1st call is the only one being taken
+            self.first += 1
             self.models[model.id][1] = self.T
             with open(self.fflux, "a") as f:
                 f.write("fluxes{"+str(self.T)+"}{1}{1}{"+self.models[model.id][2]+"} = ["+" ".join(['%.2E' % Decimal(reac.flux) for reac in model.reactions])+" ];\n")
