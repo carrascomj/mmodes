@@ -13,6 +13,8 @@ from decimal import Decimal
 import os
 import re
 
+np = 0
+
 class ImplementationError(Exception):
     """ If Manifest was instantiated without models, raise (Implementation error,
     it should be removed after it's properly integrated with mmodes """
@@ -91,11 +93,11 @@ class Manifest():
     def write_fluxes(self, model, t):
         """ Writes fluxes log file
         INPUT -> t, float representing time
-                model, cobra model object"""
+                model, cobra model object """
         # lines have got the format "fluxes{t}{1}{1}{num strain} = [1E0 1.3E21 ...]"
         if self.curr_t != t:
             # since COMETS is fixed-step and solver calls dinamicpFBA several times,
-            # managing of time value is a bit tricky
+            # management of time value is a bit tricky
             self.T += 1
             self.curr_t = t
         if self.T != self.models[model.id][1] or self.first < 2:
@@ -123,10 +125,7 @@ def find_models(dir_models, just_path = False):
     models = []
     strain_number = 1
     for mod in path_models:
-        try:
-            models.append(cobra.io.load_matlab_model(mod))
-        except:
-            models.append(cobra.io.read_sbml_model(mod))
+        models.append(load_model(mod))
         # models_description attribute will be used to name files, maybe it's
         # better to just apply "strain_"...
         if models[-1].description == "":
@@ -315,7 +314,7 @@ def make_lay(dir_models = "", file_media = "", outfile = "Consortium_layout.txt"
 
 def translate_model(model_path, save_model=None, suffix = r'__91__(\w)__93__'):
     """ Function that translate model extracellular metabolites to other 'lenguages'"""
-    mod = cobra.io.read_sbml_model(model_path)
+    mod = load_model(model_path)
     new_model = cobra.Model()
     new_model.id = mod.id
     p = re.compile(r'(.+)'+suffix)
@@ -432,6 +431,21 @@ def parse_flux(ff, t = 10, st = 2):
             print("No matched string")
             return ""
 
+def load_model(model_path):
+    """ Function that loads models """
+    if hasattr(model_path, "metabolites"):
+        # A cobra model was passed as argument
+        model = model_path
+    else:
+        try:
+            model = cobra.io.read_sbml_model(model_path)
+        except:
+            try:
+                model = cobra.io.load_matlab_model(model_path)
+            except:
+                model = cobra.io.load_json_model(model_path)
+    return model
+
 def write_flux_line(cha, mod, outp, sep = "\t"):
     """ Write tsv with reactions and fluxes from 'cha'
     INPUTS -> cha: str, from comets flux log
@@ -441,18 +455,37 @@ def write_flux_line(cha, mod, outp, sep = "\t"):
     fluxes = cha.replace(r' ', sep)
     if not os.path.isfile(outp):
         # if 1st call, write header
-        # TODO: this would be better written as a new convenient load_model function
-        if hasattr(mod, "metabolites"):
-            # A cobra model was passed as argument
-            model = mod
-        else:
-            # A path was passed as argument
-            try:
-                model = cobra.io.read_sbml_model(mod)
-            except:
-                model = cobra.io.load_matlab_model(mod)
+        model = load_model(mod)
         line1 = "\t".join([reac.id for reac in model.reactions])
         with open(outp, "w") as f:
             f.write(line1+"\n")
     with open(outp, "a") as f:
         f.write(fluxes[:-1]+"\n")
+
+
+def lev_distance(seq1,seq2):
+    global np
+    if not np:
+        import numpy as np
+    len1 = len(seq1) + 1
+    len2 = len(seq2) + 1
+    mat = np.zeros((len1, len2))
+    for i in range(len1):
+        mat[i,0] = i
+    for i in range(len2):
+        mat[0,i] = i
+    for x in range(1, len1):
+        for y in range(1, len2):
+            if seq1[x-1] == seq2[y-1]:
+                mat [x,y] = min(
+                    mat[x-1, y] + 1,
+                    mat[x-1, y-1],
+                    mat[x, y-1] + 1
+                )
+            else:
+                mat [x,y] = min(
+                    mat[x-1,y] + 1,
+                    mat[x-1,y-1] + 1,
+                    mat[x,y-1] + 1
+                )
+    return (mat[len1 - 1, len2 - 1])

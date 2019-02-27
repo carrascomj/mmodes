@@ -6,8 +6,7 @@
 
 # Author: Jorge Carrasco Muriel
 # e-mail: jorge.cmuriel@alumnos.upm.es
-# Date of 1st version: 30/12/2018
-# Date of last update: 14/01/20189
+# Date of first version: 30/12/2018
 
 import sys
 import os
@@ -31,7 +30,7 @@ class NoBiomassException(Exception):
     """
     pass
 class NotIntegratorError(Exception):
-    """ When integrator is False... check Consortium.run parameters"""
+    """ When integrator is False... check Consortium.run() parameters"""
     pass
 
 class InfeasibleSolution(Exception):
@@ -46,12 +45,12 @@ class Volume():
 
     def get_bm_reaction(self, model):
         """ Look for the biomass reaction
-        INPUT: model
-        OUTPUT: biomass rection cobra object """
+        INPUT -> COBRA model object
+        OUTPUT -> biomass rection cobra object """
         # There are some strange models that have a biomas exchange reaction,
         # so it doesn't properly works sometimess.
         for reac in model.reactions:
-            if reac.id.lower().find("biomass") != -1:
+            if reac.id.lower().find("biomass") != -1 and reac not in model.exchanges:
                 bm = reac.id
                 break
         else:
@@ -60,7 +59,7 @@ class Volume():
 
     def dupdate(self):
         """ Update value of biomass concentration
-        INPUT: volume """
+        INPUT -> volume """
         self.q += self.bm.value*self.q
         return self.bm.value*self.q
 
@@ -79,10 +78,13 @@ class dModel():
         self.check_feasible()
         return
 
+    def __str__(self):
+        return "MMODES model object of {0}, path in {1} and actual biomass of {2}".format(self.model.id, self.path, self.volume.q)
+
     def load_model(self):
         """ Loads a matlab or sbml model
-        INPUT: path
-        OUTPUT: cobra model object """
+        INPUT -> path
+        OUTPUT -> cobra model object """
         mod = self.path
         try:
             model_obj = cobra.io.read_sbml_model(mod)
@@ -92,8 +94,13 @@ class dModel():
 
     def update(self):
         """ Updates value of biomass concentration
-        INPUT: volume """
+        INPUT ->º volume """
         return self.volume.dupdate()
+
+    def add_biom(self, added):
+        """ Add biomass to Volume """
+        self.volume.q += added
+        return
 
     def get_exchange_reactions(self):
         """ model.exchanges cobra method isn't properly working. This function
@@ -198,6 +205,12 @@ class Consortium():
             self.cobrunion = self.cobrunion_names
         return
 
+    def __str__(self):
+        echo = "Consortium MMODES object with {0} volume , {1} as death_rate and {2} models: ".format(self.v, self.death_rate, len(self.models))
+        for mod in self.models.values():
+            echo += "\n"+mod.__str__()
+        return echo
+
     def set_dMetabolites(self, mets):
         """ Initializes self.mets_def as dictionary of met.id: dMetabolite obj
         INPUT -> mets, list of dMetabolite objects
@@ -216,7 +229,9 @@ class Consortium():
         ex_mets = set()
         for model in models:
             for met in model.model.metabolites:
-                if met.id.find("[e]") != -1:
+                if not met.compartment:
+                    print(met.id, "with name", met.name, "haven't got an specified compartment attribute.")
+                elif met.compartment == 'e':
                     ex_mets.add(met.id)
         return ex_mets
 
@@ -230,7 +245,7 @@ class Consortium():
                 if not met.compartment:
                     print(met.id, "with name", met.name, "haven't got an specified compartment attribute.")
                     print("You may run as work_based_on='id'")
-                else:
+                elif met.compartment == 'e':
                     ex_mets.add(met.name)
         return ex_mets
 
@@ -250,6 +265,9 @@ class Consortium():
         for met in pert:
             if met in self.media:
                 self.media[met] += float(pert[met])*v
+            elif met in self.models:
+                # pert[met] could be negative too
+                self.models[met].add_biom(v*float(pert[met]))
             else:
                 # TODO: use a custom warning class MediaWarning
                 warnings.warn("\nMetabolite "+met+" wasn't added to media.")
@@ -421,10 +439,11 @@ class Consortium():
             solver.set_integrator(integrator, nsteps=1, max_step=grid_dt)
             integratorSet = True
         else:
+            # maybe vode should be the only option.
             solver.set_integrator(integrator, min_step=stepChoiceLevel[0], max_step=stepChoiceLevel[1], method = 'bdf', order = 5)
             integratorSet = True
         if integratorSet:
-            #set the parameters of the differential function dqdt: model and verbosity
+            # set the parameters of the differential function dqdt: model and verbosity
             solver.set_f_params(self, verbose)
             # suppress Fortran-printed warning
             solver._integrator.iwork[2] = -1
@@ -462,8 +481,6 @@ class Consortium():
                 print(self.stopDFBA[1])
             else:
                 print("\nMax time or steps reached.\n")
-            # We're pretty polite.
-            #print("Thank you for using my script!")
         return
 
     def write_plot_tsv(self):
@@ -504,7 +521,7 @@ class Consortium():
         # or nominal data color scheme found in http://geog.uoregon.edu/datagraphics/color/Cat_12.txt
         colors_hex = "#ff7f00", "#32ff00", "#19b2ff", "#654cff", "#e51932", "#000000", "#ffff32", "#ff99bf", "#ccbfff", "#a5edff", "#b2ff8c", "#ffff99", "#ffbf7f"
         to_plot=pd.read_csv(path, sep='\t', header = 0)
-        for col in to_plot:
+        for col in to_plot: # leave just selected metabolites and biomasses
             if col not in self.mets_to_plot and col not in self.orgs_to_plot and col != "time":
                 del to_plot[col]
         to_plot.loc[:, to_plot.columns != 'time'] = to_plot.loc[:, to_plot.columns != 'time'] / self.v # return concentrations
@@ -512,11 +529,11 @@ class Consortium():
         t = to_plot.time
         i = 0
         for col in to_plot:
-            if 0 < i < len(self.orgs_to_plot) + 1:
+            if 0 < i < len(self.orgs_to_plot) + 1: # plotting biomasses
                 s1 = to_plot[col]
                 ax1.plot(t, s1, colors_hex[i], alpha = 0.8)
-            elif i >= len(self.orgs_to_plot) + 1:
-                if i == len(self.orgs_to_plot) + 1:
+            elif i >= len(self.orgs_to_plot) + 1: # plotting metabolites
+                if i == len(self.orgs_to_plot) + 1: # set new y axis
                     ax1.set_xlabel("time(h)")
                     ax1.set_ylabel('organisms (g/L)')
                     ax1.tick_params('y')
