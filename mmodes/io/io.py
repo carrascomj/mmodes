@@ -12,7 +12,7 @@ import cobra
 from decimal import Decimal
 import os
 import re
-
+from warnings import filterwarnings as wfilt
 np = 0
 
 class ImplementationError(Exception):
@@ -437,6 +437,7 @@ def load_model(model_path):
         # A cobra model was passed as argument
         model = model_path
     else:
+        wfilt("ignore", category=UserWarning)
         try:
             model = cobra.io.read_sbml_model(model_path)
         except:
