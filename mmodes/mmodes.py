@@ -20,6 +20,7 @@ import matplotlib.pyplot as plt
 from scipy.integrate import ode, odeint # "integrate" module is not importable!
 from copy import deepcopy as dcp
 from mmodes.io import Manifest
+from mmodes.io import load_model
 
 
 class NoBiomassException(Exception):
@@ -66,7 +67,7 @@ class Volume():
 class dModel():
     def __init__(self, mod_path, volume_0, solver = "glpk", method = "pfba", dMets = {}, work_based_on = "id"):
         self.path = mod_path
-        self.model = self.load_model() # cobra model
+        self.model = load_model(mod_path) # cobra model
         self.volume = Volume(volume_0, self.model) # volume object
         self.identifier = work_based_on.lower()
         self.exchanges = self.get_exchange_reactions() # dict met:exchange reactio
@@ -80,17 +81,6 @@ class dModel():
 
     def __str__(self):
         return "MMODES model object of {0}, path in {1} and actual biomass of {2}".format(self.model.id, self.path, self.volume.q)
-
-    def load_model(self):
-        """ Loads a matlab or sbml model
-        INPUT -> path
-        OUTPUT -> cobra model object """
-        mod = self.path
-        try:
-            model_obj = cobra.io.read_sbml_model(mod)
-        except:
-            model_obj = cobra.io.load_matlab_model(mod)
-        return model_obj
 
     def update(self):
         """ Updates value of biomass concentration
@@ -338,12 +328,11 @@ class Consortium():
                     if copy_media[met] == 0:
                         mod.reactions.get_by_id(org.exchanges[met]).lower_bound = 0
                     elif met not in org.dMets:
-                        # set as default
-                        # or let it be as defined in cobra model
-                        if copy_media[met] < mod.reactions.get_by_id(org.exchanges[met]).lower_bound:
-                            mod.reactions.get_by_id(org.exchanges[met]).lower_bound = copy_media[met]
+                        # leave them as defined in cobra model
+                        if copy_media[met] < mod.reactions.get_by_id(org.exchanges[met]).lower_bound*org.volume.q:
+                            mod.reactions.get_by_id(org.exchanges[met]).lower_bound = copy_media[met]/org.volume.q
                     else:
-                        # dMetabolites has specific Vmax, Km
+                        # or dMetabolites has specific Vmax, Km
                         mod.reactions.get_by_id(org.exchanges[met]).lower_bound = self.mm(copy_media[met],org.dMets[met].Vmax, org.dMets[met].Km)
                 # 3) Run pFBA and update volume (it will be properly updated later)
                 org.opt(mod)
@@ -533,7 +522,7 @@ class Consortium():
             if i in to_plot:
                 mets_ok = True
             else:
-                print("\nMetabolites {i} won't be plotted. Check your spelling of this metabolite" % locals())
+                print(f"\nMetabolites {i}s won't be plotted. Check your spelling of this metabolite.")
         if not mets_ok:
             print("Metabolites weren't properly supplied in 'self.mets_to_plot'. Plot won't be generated!")
             return False
@@ -561,6 +550,11 @@ class Consortium():
                 ax2.tick_params('y')
             i += 1
         plt.title(title, loc = 'left')
+        N = 6
+        ymin, ymax = ax1.get_ylim()
+        ax1.set_yticks(np.round(np.linspace(0, ymax, N), 2))
+        ymin, ymax = ax2.get_ylim()
+        ax2.set_yticks(np.round(np.linspace(0, ymax, N), 2))
         ax1.grid(True, 'major', ls='-', color = 'grey', alpha=.3)
         ax1.legend(loc=6)
         ax2.legend(loc=2)
