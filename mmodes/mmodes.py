@@ -24,30 +24,39 @@ from mmodes.io import load_model
 
 
 class NoBiomassException(Exception):
-    """
+    '''
     NoBiomassException is raised when a dynamicModel.reactions attribute does not
     contain 'biomass' as key
     Biomass is needed to follow growth!
-    """
+    '''
     pass
 class NotIntegratorError(Exception):
-    """ When integrator is False... check Consortium.run() parameters"""
+    '''
+    When integrator is False... check Consortium.run() parameters
+    '''
     pass
 
 class InfeasibleSolution(Exception):
-    """ If method (pFBA or FBA) reports Infeasible when dModel is instantiated"""
+    '''
+    If method (pFBA or FBA) reports Infeasible when dModel is instantiated
+    '''
     pass
 
 class Volume():
+    '''
+    Volume object that will be created inside a dModel object to contain biomass info.
+    '''
     def __init__(self, volume_0, model):
         self.bm = self.get_bm_reaction(model) # biomass reaction cobra object
         self.q = volume_0 # biomass concentration
         return
 
     def get_bm_reaction(self, model):
-        """ Look for the biomass reaction
+        '''
+        Look for the biomass reaction
         INPUT -> COBRA model object
-        OUTPUT -> biomass rection cobra object """
+        OUTPUT -> biomass rection cobra object
+        '''
         # There are some strange models that have a biomas exchange reaction,
         # so it doesn't properly works sometimess.
         for reac in model.reactions:
@@ -59,12 +68,18 @@ class Volume():
         return bm
 
     def dupdate(self):
-        """ Update value of biomass concentration
-        INPUT -> volume """
+        '''
+        Update value of biomass concentration
+        INPUT -> volume
+        '''
         self.q += self.bm.value*self.q
         return self.bm.value*self.q
 
 class dModel():
+    '''
+    Expanded COBRA model object that Consortium object will manage to run the
+    dynamic simulations.
+    '''
     def __init__(self, mod_path, volume_0, solver = "glpk", method = "pfba", dMets = {}, work_based_on = "id"):
         self.path = mod_path
         self.model = load_model(mod_path) # cobra model
@@ -83,19 +98,25 @@ class dModel():
         return "MMODES model object of {0}, path in {1} and actual biomass of {2}".format(self.model.id, self.path, self.volume.q)
 
     def update(self):
-        """ Updates value of biomass concentration
-        INPUT ->º volume """
+        '''
+        Updates value of biomass concentration
+        INPUT ->º volume
+        '''
         return self.volume.dupdate()
 
     def add_biom(self, added):
-        """ Add biomass to Volume """
+        '''
+        Add biomass to Volume
+        '''
         self.volume.q += added
         return
 
     def get_exchange_reactions(self):
-        """ model.exchanges cobra method isn't properly working. This function
+        '''
+        model.exchanges cobra method isn't properly working. This function
         provides a fix as a dictionary.
-        OUPUT -> dictionary, metabolite: exchange reactions"""
+        OUPUT -> dictionary, metabolite: exchange reactions
+        '''
         dic_out = {}
         for reac in self.model.exchanges:
                 for met in reac.metabolites:
@@ -107,16 +128,20 @@ class dModel():
         return dic_out
 
     def free_media(self):
-        """ Eliminates boundaries associated with cobra.model.medium object. The
-        simulation fix bounds, not medium."""
+        '''
+        Eliminates boundaries associated with cobra.model.medium object. The
+        simulation fix bounds, not medium.
+        '''
         for reac in self.exchanges.values():
             # I don't know if all exchanges reactions are included in medium.
             self.model.medium[reac] = 1000
         return
 
     def opt(self, mod = ""):
-        """ Solves FBA or pFBA
-        INPUT: mod, cobra model, so it's able to work as context """
+        '''
+        Solves FBA or pFBA
+        INPUT: mod, cobra model, so it's able to work as context
+        '''
         if mod == "":
             mod = self.model
         if self.method == "pfba":
@@ -144,8 +169,10 @@ class dModel():
                     raise InfeasibleSolution("FBA is infeasiable for model "+mod.id+". You may want to check your model.")
 
     def add_dMet(self, met):
-        """ Adds a dMetabolite to self.dMets
-        INPUT -> met, dMetabolite object"""
+        '''
+        Adds a dMetabolite to self.dMets
+        INPUT -> met, dMetabolite object
+        '''
         if self.identifier == "name":
             self.dMets[met.name] = met
         else:
@@ -161,8 +188,10 @@ class dMetabolite():
         self.each_time = each_fed
 
     def refresh(self, t):
-        """ Computes times when the metabolite is added
-        INPUT -> t, iteration time of the solver"""
+        '''
+        Computes times when the metabolite is added
+        INPUT -> t, iteration time of the solver
+        '''
         # TODO: since iteration won't always work with fixed step time, I guess
         # it's necessary to change each_time to an interval ????
         ref = True
@@ -173,6 +202,15 @@ class dMetabolite():
         return ref
 
 class Consortium():
+    '''
+    Main object were simulations are computed. It keeps dModels in a dictionary
+    of id: <dModel>, media in a dictionary of met.id : <COBRA metabolite>, mets
+    with specified experimental Michaellis Menten in a dictionary of met.id :
+    <dMetabolites> and other parameters of the simulationselfself.
+        -> dinamicpFBA is where dModels are updated and optimized to compute biomass.
+        -> run() is the main method, which controls the simulation.
+        -> plot_comm() is the plot method.
+    '''
     def __init__(self, media = {}, models = {}, max_growth = 10, death_rate = 0, v = 1, timeStep = 0.1, mets_def = [], defaultKm = 0.01, defaultVmax = 20, stcut = 1e-4, title = "draft_cons", mets_to_plot = [], work_based_on = "id", manifest = ""):
         self.models = models
         self.media = self.set_media(media, concentration = True) # dict met.id : concentration
@@ -202,9 +240,11 @@ class Consortium():
         return echo
 
     def set_dMetabolites(self, mets):
-        """ Initializes self.mets_def as dictionary of met.id: dMetabolite obj
+        '''
+        Initializes self.mets_def as dictionary of met.id: dMetabolite obj
         INPUT -> mets, list of dMetabolite objects
-        OUTPUT -> dict """
+        OUTPUT -> dict
+        '''
         if mets == []:
             return {}
         dict_mets = {}
@@ -213,8 +253,10 @@ class Consortium():
         return dict_mets
 
     def cobrunion(self):
-        """union of the models as a list
-        OUPUT -> list of union of extracellular metabolites"""
+        '''
+        Union of the models as a list
+        OUPUT -> list of union of extracellular metabolites
+        '''
         models = self.models.values()
         ex_mets = set()
         for model in models:
@@ -226,8 +268,10 @@ class Consortium():
         return ex_mets
 
     def cobrunion_names(self):
-        """ Union of metabolites of the models as a list (name version)
-        OUPUT -> list of union of extracellular metabolites"""
+        '''
+        Union of metabolites of the models as a list (name version)
+        OUPUT -> list of union of extracellular metabolites
+        '''
         models = self.models.values()
         ex_mets = set()
         for model in models:
@@ -240,7 +284,9 @@ class Consortium():
         return ex_mets
 
     def add_model(self, mod_path, volume_0, solver = "glpk", method = "pfba", dMets = {}):
-        """ Adds a model to the consortium """
+        '''
+        Adds a model to the consortium
+        '''
         mod = dModel(mod_path, volume_0 * self.v, solver, method, dMets, work_based_on = self.identifier)
         self.models[mod.model.id] = mod
         # If metabolite already in another model, refresh value will be replaced
@@ -249,8 +295,10 @@ class Consortium():
         return
 
     def add_mets(self, pert, concentration = False):
-        """ Adds a perturbation to media
-        INPUT -> pert, dict met.id : concentration/quantity"""
+        '''
+        Adds a perturbation to media
+        INPUT -> pert, dict met.id : concentration/quantity
+        '''
         v = self.v if concentration else 1
         for met in pert:
             if met in self.media:
@@ -265,11 +313,13 @@ class Consortium():
 
     # TODO: better defined as setter, with a decorator.
     def set_media(self, media, concentration = False):
-        """ Set self.media, as extracellular metabolites in all models updated
+        '''
+        Set self.media, as extracellular metabolites in all models updated
         with initial concentrations
         INPUT -> media, dict of inital concentrations in media,
             concentration -> bool, True in 1st call, to multiply per volume
-        OUPUT -> media0, dict of all extracellular metabolites initialized """
+        OUPUT -> media0, dict of all extracellular metabolites initialized
+        '''
         media0 = {}
         if self.models: # empty sequences are false...
             v = self.v if concentration else 1
@@ -288,7 +338,9 @@ class Consortium():
             return ""
 
     def mm(self, c, v=None, k=None):
-        """ Michaellis menten computation of lower bound """
+        '''
+        Michaellis menten computation of lower bound
+        '''
         if v == None:
             v = self.Vmax
         if k == None:
@@ -296,10 +348,12 @@ class Consortium():
         return (-c*v)/(k*c)
 
     def dinamicpFBA(self, t, log_texts = False):
-        """ f in ODEsolver, computes dBM and dC
+        '''
+        f in ODEsolver, computes dBM and dC
         INPUT -> t: timestep, just to compute refresment of media
                dC
-        OUPUT -> numpy array ([dBM/dt]+[dCj/dt]])"""
+        OUPUT -> numpy array ([dBM/dt]+[dCj/dt]])
+        '''
         dBMdt = {k: 0 for k in self.models}
         ran_mods_id = [k for k in dBMdt]
         random.shuffle(ran_mods_id) # to randomly iterate over models
@@ -355,9 +409,11 @@ class Consortium():
         return dQdt
 
     def update_true_ode(self, sol):
-        """ Once an iteration of ODE solver is done, it updates media with true
-        values from u_new
-        INPUT -> sol, list of dQdt solutions in a time step of ODE solution"""
+        '''
+        Once an iteration of ODE solver is done, it updates media with true
+        values from sol.
+        INPUT -> sol, list of dQdt solutions in a time step of ODE solution
+        '''
         s = list(sol)
         i = 0
         for mod in sorted(self.models):
@@ -387,7 +443,9 @@ class Consortium():
         return q,t
 
     def is_stable(self):
-        """ Check if the slope is less than near-0 value """
+        '''
+        Check if the slope is less than near-0 value
+        '''
         biomassesdt = self.dQdt[0:len(self.models)] # it would be more correct to take solver output
         for b in biomassesdt:
             if b>self.stcut:
@@ -397,7 +455,8 @@ class Consortium():
         return
 
     def run(self, maxT=10, integrator='dopri5', stepChoiceLevel=(0., 10., 50.), verbose = False, outf = "plot.tsv", outp = "plot.png", plot = True):
-        """Solves systems of ODEs while updating values.
+        '''
+        Solves systems of ODEs while updating values.
         INPUTS -> maxT = maxtime condition
                 integrator = type of solver of scipy.integrator.ode/odeint class
                 stepChoiceLevel=(0, max T step, max N steps) or (0,endValue, nSteps)
@@ -406,7 +465,8 @@ class Consortium():
         1) Def f as one of object methods
         2) while no convergence:
             3) advances one step of ODE solver
-            4) updates values in object of biomasses and media concentrations"""
+            4) updates values in object of biomasses and media concentrations
+        '''
         def dqdt(t, y, mod, log_texts = False):
             '''
             Return the dQdt system of ODEs defined from the flux solutions
@@ -474,8 +534,10 @@ class Consortium():
         return
 
     def write_plot_tsv(self):
-        """ Records the output of the solver as a TSV
-        INPUTS -> out_file: path to output file """
+        '''
+        Records the output of the solver as a TSV
+        INPUTS -> out_file: path to output file
+        '''
         if not os.path.isfile(self.output):
             # write header
             with open(self.output, "w") as f:
@@ -497,12 +559,14 @@ class Consortium():
             f.write(str(self.T[-1])+"\t"+line+"\n")
 
     def plot_comm(self,color_set = "tableau20"):
-        """ Plots the concentration of given microorganisms and metabolites
+        '''
+        Plots the concentration of given microorganisms and metabolites
         INPUTS -> path: string, path to the file to be used as input
                 output: string, path where the plot will be generated
                 organisms: list of strings to label microorganisms
                 metabolites: list of strings to label metabolites
-        OUTPUTS -> returns nothing, generates a plot in 'self.outplot' """
+        OUTPUTS -> returns nothing, generates a plot in 'self.outplot'
+        '''
         title = self.title
         path = self.output
         output = self.outplot
@@ -564,7 +628,9 @@ class Consortium():
         return
 
 class ProBar():
-    """ Just a simple progress bar object to output on screen """
+    '''
+    Just a simple progress bar object to output on screen
+    '''
     def __init__(self, n, blength = 20):
         self.n = n
         self.blength = 20
