@@ -99,7 +99,7 @@ class dModel():
         dic_out = {}
         for reac in self.model.exchanges:
                 for met in reac.metabolites:
-                    if met.id.find("biomass") == -1 and met.compartment == "e": #strange metabolite in some models
+                    if met.id.find("biomass") == -1 and met.compartment in ["e", "e0", "ExtraCellular", "extracellular"]: #strange metabolite in some models
                         if self.identifier == "name":
                             dic_out[met.name] = reac.id
                         else:
@@ -221,7 +221,7 @@ class Consortium():
             for met in model.model.metabolites:
                 if not met.compartment:
                     print(met.id, "with name", met.name, "haven't got an specified compartment attribute.")
-                elif met.compartment == 'e':
+                elif met.compartment in ['e', 'e0', 'ExtraCellular', 'extracellular']:
                     ex_mets.add(met.id)
         return ex_mets
 
@@ -235,7 +235,7 @@ class Consortium():
                 if not met.compartment:
                     print(met.id, "with name", met.name, "haven't got an specified compartment attribute.")
                     print("You may run as work_based_on='id'")
-                elif met.compartment == 'e':
+                elif met.compartment in ['e', 'e0', 'ExtraCellular', 'extracellular']:
                     ex_mets.add(met.name)
         return ex_mets
 
@@ -263,6 +263,7 @@ class Consortium():
                 warnings.warn("\nMetabolite "+met+" wasn't added to media.")
         return
 
+    # TODO: better defined as setter, with a decorator.
     def set_media(self, media, concentration = False):
         """ Set self.media, as extracellular metabolites in all models updated
         with initial concentrations
@@ -329,8 +330,8 @@ class Consortium():
                         mod.reactions.get_by_id(org.exchanges[met]).lower_bound = 0
                     elif met not in org.dMets:
                         # leave them as defined in cobra model
-                        if copy_media[met] < mod.reactions.get_by_id(org.exchanges[met]).lower_bound*org.volume.q:
-                            mod.reactions.get_by_id(org.exchanges[met]).lower_bound = copy_media[met]/org.volume.q
+                        if copy_media[met] < abs(mod.reactions.get_by_id(org.exchanges[met]).lower_bound*org.volume.q):
+                            mod.reactions.get_by_id(org.exchanges[met]).lower_bound = -copy_media[met]/org.volume.q
                     else:
                         # or dMetabolites has specific Vmax, Km
                         mod.reactions.get_by_id(org.exchanges[met]).lower_bound = self.mm(copy_media[met],org.dMets[met].Vmax, org.dMets[met].Km)
