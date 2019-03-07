@@ -617,7 +617,7 @@ class Consortium():
         plt.title(title, loc = 'left')
         N = 6
         ymin, ymax = ax1.get_ylim()
-        ax1.set_yticks(np.round(np.linspace(0, ymax, N), 2))
+        ax1.set_yticks(np.round(np.linspace(0, ymax, N), 5))
         ymin, ymax = ax2.get_ylim()
         ax2.set_yticks(np.round(np.linspace(0, ymax, N), 2))
         ax1.grid(True, 'major', ls='-', color = 'grey', alpha=.3)
