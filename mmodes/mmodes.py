@@ -213,14 +213,14 @@ class Consortium():
     '''
     def __init__(self, media = {}, models = {}, max_growth = 10, death_rate = 0, v = 1, timeStep = 0.1, mets_def = [], defaultKm = 0.01, defaultVmax = 20, stcut = 1e-4, title = "draft_cons", mets_to_plot = [], work_based_on = "id", manifest = ""):
         self.models = models
-        self.media = self.set_media(media, concentration = True) # dict met.id : concentration
+        self.v = v # volume is in liters
         self.max_growth = max_growth
         self.death_rate = death_rate
+        self.media = self.set_media(media, concentration = True) # dict met.id : concentration
         self.mets_def = self.set_dMetabolites(mets_def) # dict of dMetabolite objects
         self.Km = defaultKm
         self.Vmax = defaultVmax
         self.T = [0.]
-        self.v = v # volume is in liters
         self.stopDFBA = (False, "not running yet!")
         self.stcut = stcut
         self.title = title
@@ -308,7 +308,7 @@ class Consortium():
                 self.models[met].add_biom(v*float(pert[met]))
             else:
                 # TODO: use a custom warning class MediaWarning
-                warnings.warn("\nMetabolite "+met+" wasn't added to media.")
+                warnings.warn("\nMetabolite "+met.name+" wasn't added to media.")
         return
 
     # TODO: better defined as setter, with a decorator.
@@ -374,6 +374,8 @@ class Consortium():
             if not org.volume.q:
                 # Biomass of organism = 0
                 dBMdt[mID] = 0
+                if self.manifest:
+                    self.manifest.write_fluxes(org.model, self.T[-1])
                 continue
             with org.model as mod:
                 # 2) Updates lower bounds
@@ -454,7 +456,7 @@ class Consortium():
             self.stopDFBA = (True, "\nStationary state has been reached.\n")
         return
 
-    def run(self, maxT=10, integrator='dopri5', stepChoiceLevel=(0., 10., 50.), verbose = False, outf = "plot.tsv", outp = "plot.png", plot = True):
+    def run(self, maxT=10, integrator='vode', stepChoiceLevel=(0., 0.5, 1000.), verbose = False, outf = "plot.tsv", outp = "plot.png", plot = True):
         '''
         Solves systems of ODEs while updating values.
         INPUTS -> maxT = maxtime condition
@@ -480,31 +482,37 @@ class Consortium():
         integratorSet = False
         nMaxSteps = stepChoiceLevel[2]
         # as in DAPHNE, https://github.com/QTB-HHU/daphne_ecoli-diauxie (Succurro et al., 2018)
-        solver = ode(dqdt).set_integrator(integrator)
-        if integrator in ['dopri5', 'lsoda']:
-            nMaxSteps -= 1
-            # In this case: stepChoiceLevel=(0,endValue, nSteps)
-            grid_t = np.linspace(stepChoiceLevel[0], stepChoiceLevel[1], stepChoiceLevel[2])
-            grid_dt = grid_t[1] - grid_t[0]
-            solver.set_integrator(integrator, nsteps=1, max_step=grid_dt)
-            integratorSet = True
-        else:
-            # maybe vode should be the only option.
-            solver.set_integrator(integrator, min_step=stepChoiceLevel[0], max_step=stepChoiceLevel[1], method = 'bdf', order = 5)
-            integratorSet = True
-        if integratorSet:
-            # set the parameters of the differential function dqdt: model and verbosity
-            solver.set_f_params(self, verbose)
-            # suppress Fortran-printed warning
-            solver._integrator.iwork[2] = -1
-            warnings.filterwarnings("ignore", category=UserWarning)
+        if integrator.upper() == "FEA":
+            solver = FEA(f = dqdt, dt = stepChoiceLevel[0], mod = self)
             q0, t0 = self.get_conditions()
             solver.set_initial_value(q0, t0)
             step = 0
-            substeps = 0
-            eventIdx = 1
         else:
-            raise NotIntegratorError("ODE Parameters weren't properly supplied.")
+            solver = ode(dqdt).set_integrator(integrator)
+            if integrator in ['dopri5', 'lsoda']:
+                nMaxSteps -= 1
+                # In this case: stepChoiceLevel=(0,endValue, nSteps)
+                grid_t = np.linspace(stepChoiceLevel[0], stepChoiceLevel[1], stepChoiceLevel[2])
+                grid_dt = grid_t[1] - grid_t[0]
+                solver.set_integrator(integrator, nsteps=1, max_step=grid_dt)
+                integratorSet = True
+            else:
+                # maybe vode should be the only option.
+                solver.set_integrator(integrator, min_step=stepChoiceLevel[0], max_step=stepChoiceLevel[1], method = 'bdf', order = 5)
+                integratorSet = True
+            if integratorSet:
+                # set the parameters of the differential function dqdt: model and verbosity
+                solver.set_f_params(self, verbose)
+                # suppress Fortran-printed warning
+                solver._integrator.iwork[2] = -1
+                warnings.filterwarnings("ignore", category=UserWarning)
+                q0, t0 = self.get_conditions()
+                solver.set_initial_value(q0, t0)
+                step = 0
+                substeps = 0
+                eventIdx = 1
+            else:
+                raise NotIntegratorError("ODE Parameters weren't properly supplied.")
         if verbose:
             bar = ProBar(maxT)
         if self.manifest and isinstance(self.manifest, str):
@@ -626,6 +634,24 @@ class Consortium():
         fig.tight_layout()
         plt.savefig(output, dpi = 300)
         return
+
+class FEA():
+    '''Forward Euler Approach'''
+    def __init__(self, f, mod, dt = 0.01):
+        if not callable(f):
+            raise NotIntegratorError('f is %s, not a function' % type(f))
+        self.f = lambda u, t: np.asarray(f(u, t, mod))
+        self.dt = dt
+
+    def set_initial_value(self, y, t):
+        self.y = np.asarray(y)
+        self.t = t
+
+    def integrate(self, maxT, step):
+        dt, y, t, f, = self.dt, self.y, self.t, self.f
+        self.y = y + dt*f(y, t)
+        self.t = t + dt
+
 
 class ProBar():
     '''
