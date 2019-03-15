@@ -15,12 +15,11 @@ import cobra
 import random
 import warnings
 import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
 from scipy.integrate import ode, odeint # "integrate" module is not importable!
 from copy import deepcopy as dcp
 from mmodes.io import Manifest
 from mmodes.io import load_model
+from mmodes.vis import plot_comm
 
 
 class NoBiomassException(Exception):
@@ -64,7 +63,8 @@ class Volume():
                 bm = reac.id
                 break
         else:
-            raise NoBiomassException("No biomass reaction found in "+str(model.id))
+            raise NoBiomassException(f"No biomass reaction found in {model.id}")
+            # f-strings require >= python 3.6!
         return bm
 
     def dupdate(self):
@@ -161,12 +161,12 @@ class dModel():
                 try:
                     cobra.flux_analysis.pfba(mod)
                 except:
-                    raise InfeasibleSolution("pFBA is infeasiable for model "+mod.id+". You may want to change the method param to 'fba'.")
+                    raise InfeasibleSolution(f"pFBA is infeasiable for model {mod.id}. You may want to change the method param to 'fba'.")
             elif self.method == "pfba":
                 try:
                     mod.optimize()
                 except:
-                    raise InfeasibleSolution("FBA is infeasiable for model "+mod.id+". You may want to check your model.")
+                    raise InfeasibleSolution(f"FBA is infeasiable for model {mod.id}. You may want to check your model.")
 
     def add_dMet(self, met):
         '''
@@ -209,7 +209,7 @@ class Consortium():
     <dMetabolites> and other parameters of the simulationselfself.
         -> dinamicpFBA is where dModels are updated and optimized to compute biomass.
         -> run() is the main method, which controls the simulation.
-        -> plot_comm() is the plot method.
+        *-> plot_comm() is a function in "vis" dependency required to plot the output
     '''
     def __init__(self, media = {}, models = {}, max_growth = 10, death_rate = 0, v = 1, timeStep = 0.1, mets_def = [], defaultKm = 0.01, defaultVmax = 20, stcut = 1e-4, title = "draft_cons", mets_to_plot = [], work_based_on = "id", manifest = ""):
         self.models = models
@@ -262,7 +262,7 @@ class Consortium():
         for model in models:
             for met in model.model.metabolites:
                 if not met.compartment:
-                    print(met.id, "with name", met.name, "haven't got an specified compartment attribute.")
+                    print(f"{met.id} with name {met.name} haven't got an specified compartment attribute.")
                 elif met.compartment in ['e', 'e0', 'ExtraCellular', 'extracellular']:
                     ex_mets.add(met.id)
         return ex_mets
@@ -277,7 +277,7 @@ class Consortium():
         for model in models:
             for met in model.model.metabolites:
                 if not met.compartment:
-                    print(met.id, "with name", met.name, "haven't got an specified compartment attribute.")
+                    print(f"{met.id} with name {met.name} haven't got an specified compartment attribute.")
                     print("You may run as work_based_on='id'")
                 elif met.compartment in ['e', 'e0', 'ExtraCellular', 'extracellular']:
                     ex_mets.add(met.name)
@@ -533,7 +533,7 @@ class Consortium():
                 bar.progress(self.T[-1])
         # 3. Final message. Check why it was finished
         if plot:
-            self.plot_comm()
+            plot_comm(cons)
         if verbose:
             if self.stopDFBA[0]:
                 print(self.stopDFBA[1])
@@ -565,75 +565,6 @@ class Consortium():
             for met in sorted(self.media):
                 line += str(self.media[met])+"\t"
             f.write(str(self.T[-1])+"\t"+line+"\n")
-
-    def plot_comm(self,color_set = "tableau20"):
-        '''
-        Plots the concentration of given microorganisms and metabolites
-        INPUTS -> path: string, path to the file to be used as input
-                output: string, path where the plot will be generated
-                organisms: list of strings to label microorganisms
-                metabolites: list of strings to label metabolites
-        OUTPUTS -> returns nothing, generates a plot in 'self.outplot'
-        '''
-        title = self.title
-        path = self.output
-        output = self.outplot
-        pallettes = {
-            # TODO: maybe, this should be implemented with palletable...
-            # some colors to plot...
-            "colors_hex_2" : ["#ff8c00", "#a020f0", "#00ff00", "#ffff00", "#7a8b8b", "#cd5555", "#1e90ff", "#787878", "#ff7f50", "#000000"],
-            # or nominal data color scheme found in http://geog.uoregon.edu/datagraphics/color/Cat_12.txt
-            "colors_hex" : ["#ff7f00", "#32ff00", "#19b2ff", "#654cff", "#e51932", "#000000", "#ffff32", "#ff99bf", "#ccbfff", "#a5edff", "#b2ff8c", "#ffff99", "#ffbf7f"],
-            # or tableau20 http://tableaufriction.blogspot.com/2012/11/finally-you-can-use-tableau-data-colors.html
-            "tableau20" : ["#1F77B4","#FF7F0E", "#2CA02C", "#D62728", "#9467BD", "#8C564B", "#E377C2", "#7F7F7F", "#17BECF", "#BCBD22", "#AEC7E8", "#98DF8A", "#C5B0D5", "#F7B6D2", "#DBDB8D"]
-        }
-        colors = pallettes[color_set]
-        to_plot=pd.read_csv(path, sep='\t', header = 0)
-        # check if metabolites where correctly specified
-        mets_ok = False
-        for i in self.mets_to_plot:
-            if i in to_plot:
-                mets_ok = True
-            else:
-                print(f"\nMetabolites {i}s won't be plotted. Check your spelling of this metabolite.")
-        if not mets_ok:
-            print("Metabolites weren't properly supplied in 'self.mets_to_plot'. Plot won't be generated!")
-            return False
-
-        for col in to_plot: # leave just selected metabolites and biomasses
-            if col not in self.mets_to_plot and col not in self.orgs_to_plot and col != "time":
-                del to_plot[col]
-        to_plot.loc[:, to_plot.columns != 'time'] = to_plot.loc[:, to_plot.columns != 'time'] / self.v # return concentrations
-        fig, ax1 = plt.subplots()
-        t = to_plot.time
-        i = 0
-        for col in to_plot:
-            if 0 < i < len(self.orgs_to_plot) + 1: # plotting biomasses
-                s1 = to_plot[col]
-                ax1.plot(t, s1, colors[i], alpha = 0.8)
-            elif i >= len(self.orgs_to_plot) + 1: # plotting metabolites
-                if i == len(self.orgs_to_plot) + 1: # set new y axis
-                    ax1.set_xlabel("time(h)", fontstyle = 'italic')
-                    ax1.set_ylabel('organisms (g/L)', fontstyle = 'italic')
-                    ax1.tick_params('y')
-                    ax2 = ax1.twinx()
-                s2 = to_plot[col]
-                ax2.plot(t, s2, colors[i], linestyle='--')
-                ax2.set_ylabel('metabolites (mmol/L)', fontstyle = 'italic')
-                ax2.tick_params('y')
-            i += 1
-        plt.title(title, loc = 'left')
-        N = 6
-        ymin, ymax = ax1.get_ylim()
-        ax1.set_yticks(np.round(np.linspace(0, ymax, N), 5))
-        ymin, ymax = ax2.get_ylim()
-        ax2.set_yticks(np.round(np.linspace(0, ymax, N), 2))
-        ax1.grid(True, 'major', ls='-', color = 'grey', alpha=.3)
-        ax1.legend(loc=6)
-        ax2.legend(loc=2)
-        fig.tight_layout()
-        plt.savefig(output, dpi = 300)
-        return
 
 class FEA():
     '''Forward Euler Approach'''
