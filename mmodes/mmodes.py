@@ -15,11 +15,12 @@ import cobra
 import random
 import warnings
 import numpy as np
-from scipy.integrate import ode, odeint # "integrate" module is not importable!
+from scipy.integrate import ode # "integrate" module is not importable!
 from copy import deepcopy as dcp
 from mmodes.io import Manifest
 from mmodes.io import load_model
 from mmodes.vis import plot_comm
+from . import _fsolvers
 
 
 class NoBiomassException(Exception):
@@ -481,13 +482,18 @@ class Consortium():
         # 1. Set parameters of solver
         integratorSet = False
         nMaxSteps = stepChoiceLevel[2]
-        # as in DAPHNE, https://github.com/QTB-HHU/daphne_ecoli-diauxie (Succurro et al., 2018)
         if integrator.upper() == "FEA":
-            solver = FEA(f = dqdt, dt = stepChoiceLevel[0], mod = self)
+            solver = _fsolvers.FEA(f = dqdt, dt = stepChoiceLevel[0], mod = self)
+            q0, t0 = self.get_conditions()
+            solver.set_initial_value(q0, t0)
+            step = 0
+        elif integrator.upper() in ["RK", "RUNGEKUTTA", "RK4"]:
+            solver = _fsolvers.RungeKutta4(f = dqdt, dt = stepChoiceLevel[0], mod = self)
             q0, t0 = self.get_conditions()
             solver.set_initial_value(q0, t0)
             step = 0
         else:
+            # as in DAPHNE, https://github.com/QTB-HHU/daphne_ecoli-diauxie (Succurro et al., 2018)
             solver = ode(dqdt).set_integrator(integrator)
             if integrator in ['dopri5', 'lsoda']:
                 nMaxSteps -= 1
@@ -565,24 +571,6 @@ class Consortium():
             for met in sorted(self.media):
                 line += str(self.media[met])+"\t"
             f.write(str(self.T[-1])+"\t"+line+"\n")
-
-class FEA():
-    '''Forward Euler Approach'''
-    def __init__(self, f, mod, dt = 0.01):
-        if not callable(f):
-            raise NotIntegratorError('f is %s, not a function' % type(f))
-        self.f = lambda u, t: np.asarray(f(u, t, mod))
-        self.dt = dt
-
-    def set_initial_value(self, y, t):
-        self.y = np.asarray(y)
-        self.t = t
-
-    def integrate(self, maxT, step):
-        dt, y, t, f, = self.dt, self.y, self.t, self.f
-        self.y = y + dt*f(y, t)
-        self.t = t + dt
-
 
 class ProBar():
     '''
