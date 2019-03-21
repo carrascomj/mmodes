@@ -16,8 +16,10 @@ np = 0
 requests = 0
 
 class ImplementationError(Exception):
-    """ If Manifest was instantiated without models, raise (Implementation error,
-    it should be removed after it's properly integrated with mmodes """
+    '''
+    If Manifest was instantiated without models, raise (Implementation error,
+    it should be removed after it's properly integrated with mmodes
+    '''
     pass
 
 class Manifest():
@@ -45,36 +47,44 @@ class Manifest():
         return
 
     def get_models(self, models):
-        """ Getter of models attribute
+        '''
+        Getter of models attribute
         INPUT -> models: dict
-        OUPUT -> models: dictionary of model.id : [cobra_model, 0, num_model] """
+        OUPUT -> models_out: dictionary of model.id : [cobra_model, 0, num_model]
+        '''
         if not models:
             raise ImplementationError("You haven't passed models to Manifest!")
         elif isinstance(models, dict):
             models_out = {}
             num_mod = 1
             for mod in sorted(models):
-                models_out[mod] = [models[mod],0, str(num_mod)]
+                models_out[mod] = [models[mod], 0, str(num_mod)]
                 num_mod += 1
         return models_out
 
     def get_media(self, media):
-        """ Getter of media
-        INPUT -> media, dictionary of met.id: value/concentration
-        OUPUT -> media, dict"""
+        '''
+        Getter of media
+        INPUT -> media: dictionary of met.id: value/concentration
+        OUPUT -> media: dict
+        '''
         if isinstance(media, dict):
             return media
         else:
             raise ImplementationError("Media has to be a dictionary")
 
     def write_biomass(self):
-        """ Write biomass log file """
+        '''
+        Write biomass log file
+        '''
         with open(self.fbiom, "a") as f:
             f.write(str(self.T)+"\t"+"\t".join([str(self.models[k][0].volume.q) for k in sorted(self.models)])+"\n")
         return
 
     def write_media(self):
-        """ Write media, log file """
+        '''
+        Write media, log file
+        '''
         if not os.path.isfile(self.fmedia):
             st_list = ["'"+k+"'" for k in sorted(self.media)]
             with open(self.fmedia, "w") as f:
@@ -91,16 +101,18 @@ class Manifest():
         return
 
     def write_fluxes(self, model, t):
-        """ Writes fluxes log file
+        '''
+        Writes fluxes log file
         INPUT -> t, float representing time
-                model, cobra model object """
+                model, cobra model object
+        '''
         # lines have got the format "fluxes{t}{1}{1}{num strain} = [1E0 1.3E21 ...]"
         if self.curr_t != t:
             # since COMETS is fixed-step and solver calls dinamicpFBA several times,
             # management of time value is a bit tricky
             self.T += 1
             self.curr_t = t
-        if self.T != self.models[model.id][1] or self.first < 2:
+        if self.T != self.models[model.id][1] or self.first < len(self.models):
             # 1st call is the only one being taken
             self.first += 1
             self.models[model.id][1] = self.T
@@ -115,9 +127,11 @@ class Manifest():
 ########################## READ FROM COMETS FUNCTIONS ##########################
 
 def cobrunion(models=[], AGORA = True):
-    """union of the models as a list
+    '''
+    union of the models as a list
     INPUT -> list of model_objects
-    OUPUT -> list of union of extracellular metabolites"""
+    OUPUT -> list of union of extracellular metabolites
+    '''
     ex_mets = set()
     for model in models:
         for met in model.metabolites:
@@ -126,20 +140,24 @@ def cobrunion(models=[], AGORA = True):
     return ex_mets
 
 def json_parser(path):
-    """ Generator that parse a JSON file which contains an array of hashes.
+    '''
+    Generator that parse a JSON file which contains an array of hashes.
     INPUT -> string, path to JSON file
-    OUTPUT -> dict, yield a media """
+    OUTPUT -> dict, yield a media
+    '''
     with open(path) as json_file:
         json_data = json.load(json_file)
     for i in range(len(json_data)):
         yield json_data[i]
 
 def to_comets(model, dir_models):
-    """Write a COMETS model file based on a model object
+    '''
+    Write a COMETS model file based on a model object
     INPUT -> model object,
              string of directory path where models can be found
     OUPUT -> creates a "xml.cmt" file,
-             return a path of model"""
+             return a path of model
+    '''
     if cobra.__version__ == "0.13.4":
         old_v = False
     else:
@@ -205,13 +223,15 @@ def to_comets(model, dir_models):
     return sbmlInputFile
 
 def write_layout(files_model, ex_mets, media, biomasses, outfile = "Consortium_layout.txt", maxCycles = 1000, timeStep = 0.1,  spaceWidth = 0.05, deathRate = 0, numRunThreads = 2, maxSpaceBiomass = 10, biom_name = "total_biomass_log_template.txt", media_name = "media_log_template.txt", flux_name = "flux_log_template.txt"):
-    """Writes the comets layout
+    '''
+    Writes the comets layout
     INPUTS -> files_model: list of strings containing model files,
               ex_mets: list of extracellular metabolites,
               media: dictionary of metabolite:concentration
               dictionary of files_model:initial biomass
               ... some of the COMETS parameters, that are described in http://www.bu.edu/segrelab/comets-parameters/
-    OUPUTS -> creates a COMETS layout in "Consortium_layout.txt"""
+    OUPUTS -> creates a COMETS layout in "Consortium_layout.txt
+    '''
     # It's important to notice that name of model files are assigned in terms of
     # model.description. If models are saved without it, the assignment is ASCII
     # ordered.
@@ -268,12 +288,14 @@ def write_cmt_script(outfile):
     # os.chmod("comets_script_template_tmp", mode)
 
 def make_lay(dir_models = "", file_media = "", outfile = "Consortium_layout.txt",  maxCycles = 1000, timeStep = 0.1,  spaceWidth = 0.05, deathRate = 0, numRunThreads = 2, maxSpaceBiomass = 10):
-    """To use as a module
+    '''
+    To use as a module
     INPUTS -> dir_models: directory where models can be found
               file_media: path to media file, default as dir_models/media.json
               ... some of the COMETS parameters, that are described in http://www.bu.edu/segrelab/comets-parameters/
     OUPUTS -> creates a COMETS layout in "Consortium_layout.txt",
-              returns the name of the outfile"""
+              returns the name of the outfile
+    '''
     if dir_models[-1] != "/":
         dir_models += "/"
     if file_media == "":
@@ -294,12 +316,14 @@ def make_lay(dir_models = "", file_media = "", outfile = "Consortium_layout.txt"
     return outfile
 
 def plot_parser(suffix='', mets = [], endCycle=int(100)):
-    """ Parser that translates the output of comets to a tsv easy-to-plot file
+    '''
+    Parser that translates the output of comets to a tsv easy-to-plot file
     INPUTS -> suffix: of the media_log file
             mets: list of metabolites to be later plotted
             endCycle: not necessary at all...
     OUPUTS -> returns the names of the file generated and the file to be later ploted
-            generates a TSV"""
+            generates a TSV
+    '''
     mets_title = ""
     num_mets=[]
     with open("media_log_"+suffix+".txt") as media:
@@ -343,12 +367,14 @@ def plot_parser(suffix='', mets = [], endCycle=int(100)):
     return outFile, plotFile
 
 def get_media_composition(path_to_media = "media_log_template.txt", suff = "[e]"):
-    """Parser that translates the information generated by COMETS of the last cycle
+    '''
+    Parser that translates the information generated by COMETS of the last cycle
     media compostion of the last iterarion to a python dictionary.
     INPUTS -> path_to_media: string, path to media_log_file,
             suff: string that indicates compartment on each metabolites of the models,
                   such as '[e]' or '_e' or '__91__e__93__'
-    OUPUTS -> met_dict: dictionary, metabolites as keys and concentrations as values"""
+    OUPUTS -> met_dict: dictionary, metabolites as keys and concentrations as values
+    '''
     with open(path_to_media) as mediaf:
         line1 = False
         lines = ""
@@ -373,11 +399,13 @@ def get_media_composition(path_to_media = "media_log_template.txt", suff = "[e]"
     return met_dict
 
 def parse_flux(ff, t = 10, st = 2):
-    """ Select line from a COMETS flux_log file
+    '''
+    Select line from a COMETS flux_log file
     INPUTS -> ff: str, path to flux_log COMETS file
             t: int, time to extract
             st: int, number of strain
-    OUTPUT -> string, fluxes separated by ' ' """
+    OUTPUT -> string, fluxes separated by ' '
+    '''
     p = re.compile(r'^fluxes\{'+str(t)+r'\}\{\d+\}\{\d+\}\{'+str(st)+r'\} = \[(.+) ?\]')
     with open(ff) as f:
         for line in f.readlines():
@@ -390,10 +418,12 @@ def parse_flux(ff, t = 10, st = 2):
             return ""
 
 def write_flux_line(cha, mod, outp, sep = "\t"):
-    """ Write tsv with reactions and fluxes from 'cha'
+    '''
+    Write tsv with reactions and fluxes from 'cha'
     INPUTS -> cha: str, from comets flux log
             mod: str, path to model (or cobra model object)
-            outp: str, path to output"""
+            outp: str, path to output
+    '''
     # Prepare input
     fluxes = cha.replace(r' ', sep)
     if not os.path.isfile(outp):
@@ -409,10 +439,12 @@ def write_flux_line(cha, mod, outp, sep = "\t"):
 ############################# MANAGEMENT OF MODELS #############################
 
 def find_models(dir_models, just_path = False):
-    """Find models in "dir_models" path
+    '''
+    Find models in "dir_models" path
     INPUTS -> dir_models: path to models directory (string)
             just_path: bool, True if just outputs a string with the path.
-    OUPUT -> list of model objects"""
+    OUPUT -> list of model objects
+    '''
     path_models = []
     for file in os.listdir(dir_models):
         # Find all sbml or matlab models and exclude comets models
@@ -432,9 +464,9 @@ def find_models(dir_models, just_path = False):
     return models
 
 def load_model(model_path):
-    """
+    '''
     Function that loads models
-    """
+    '''
     if hasattr(model_path, "metabolites"):
         # A cobra model was passed as argument
         model = model_path
@@ -450,7 +482,9 @@ def load_model(model_path):
     return model
 
 def change_model_prefix(model_path, save_model=None, suffix = r'__91__(\w)__93__'):
-    """ Function that translate model extracellular metabolites to other 'lenguages'"""
+    '''
+    Function that translate model extracellular metabolites to other 'lenguages'
+    '''
     mod = load_model(model_path)
     new_model = cobra.Model()
     new_model.id = mod.id
@@ -474,9 +508,9 @@ def change_model_prefix(model_path, save_model=None, suffix = r'__91__(\w)__93__
 
 # 1. BiGG equivalences (name -> id)
 def download_file(url):
-    """
+    '''
     Function that downloads a file from url
-    """
+    '''
     local_filename = url.split('/')[-1]
     if not os.path.exists(local_filename):
         global requests
@@ -493,11 +527,11 @@ def download_file(url):
 
 
 def lev_distance(seq1,seq2):
-    """
+    '''
     Computes Levenshtein Distance
     INPUTS -> seq1 and seq2: strings to be compared.
     OUPUT -> int, Levenshtein distance (score).
-    """
+    '''
     len1 = len(seq1) + 1
     len2 = len(seq2) + 1
     mat = np.zeros((len1, len2))
@@ -522,14 +556,14 @@ def lev_distance(seq1,seq2):
     return (mat[len1 - 1, len2 - 1])
 
 def write_eqs(mod_mets, outp):
-    """
+    '''
     Interactive function, tries to match every metabolite in mod_mets with
     BiGG database based on name atribute. It accounts for perfect match or
     best similarity match.
     INPUTS -> mod_mets: list of COBRA metabolite objects
             output: string, path to output
     OUTPUT -> dict, met.name: id BiGG
-    """
+    '''
     print("Comparing with BiGG...\n")
     # Download all metabolites in BiGG to dict
     p_num = re.compile(r'^[\d]+$')
@@ -611,13 +645,13 @@ def write_eqs(mod_mets, outp):
 
 # 2. Main call to translation with Levenshtein method.
 def healthy_translate(mod, outp = False, memo = "metabolites_modelxBiGG.tsv"):
-    """
+    '''
     Function that translates model extracellular metabolites to BiGG nomenclature
     based on name of metabolites.
     INPUTS -> mod: string, path to sbml model
               output: string, path to output or False to don't write output
     OUPUT -> model translated
-    """
+    '''
     model = load_model(mod)
     ex_mets = []
     for met in model.metabolites:
