@@ -90,7 +90,7 @@ def plot_comm(cons, color_set = "tableau20"):
     ymin, ymax = ax1.get_ylim()
     ax1.set_yticks(np.round(np.linspace(0, ymax, N), 5))
     ymin, ymax = ax2.get_ylim()
-    ax2.set_yticks(np.round(np.linspace(0, ymax, N), 2))
+    ax2.set_yticks(np.round(np.linspace(0, ymax, N), 5))
     ax1.grid(True, 'major', ls='-', color = 'grey', alpha=.3)
     ax1.legend(loc=6)
     ax2.legend(loc=2)
