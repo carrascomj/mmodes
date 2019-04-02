@@ -120,7 +120,7 @@ def walkplot(cons):
     # loop over metabolites, plot them and let the user close the window
     for m in range(0, len(mets), 4):
         cons.mets_to_plot = [mets[m], mets[m+1], mets[m+2], mets[m+3]]
-        cons.plot_comm()
+        plot_comm(cons)
         plt.show()
         print("Image number", m/4)
 
@@ -131,15 +131,14 @@ def walkplot(cons):
     cons.outplot = original_outplot
     return
 
-def find_active_mets(cons, sign = "both"):
+def find_active_mets(cons, sign = "both", colors = True):
     '''
     Function that prints to screen metabolites that have changed during the simulation
     sorted by proportional value of change (or absolute value, if initial condition is 0).
     INPUTS -> cons: MMODES consortium object already simulated;
               sign: one of ["both", "+", "-"], it prints both, positive or negative increments.
-    OUTPUT -> metabolites ordered by absoulute value of change.
+    OUTPUT -> pandas DataFrame, metabolites ordered by absolute value of change.
     '''
-    # TODO: order by fold change
     global pd
     if not pd:
         import pandas as pd
@@ -150,10 +149,21 @@ def find_active_mets(cons, sign = "both"):
         else:
             return abs(float(elem[3][10:-10]))/elem[1]
 
+    def keysortbw(elem):
+        if elem[1] == 0:
+            return abs(float(elem[3]))
+        else:
+            return abs(float(elem[3]))/elem[1]
+
     # Call always after cons.runn()!
     if not hasattr(cons, "output"):
         print("Consortium object must run before analyzing the output of the run!")
         return
+
+    if colors:
+        colors = ["\033[1;32;40m", "\033[1;31;40m","\033[0m"]
+    else:
+        colors = ["", "", ""]
 
     sim_tsv = pd.read_csv(cons.output, sep = "\t")
     nrow = sim_tsv.shape[0]-1
@@ -165,16 +175,16 @@ def find_active_mets(cons, sign = "both"):
         valn = sim_tsv[col][nrow]
         increment = valn-val0
         if increment > 0 and sign != "-":
-            increment = "\033[1;32;40m" + str(val0-valn) + "\033[0m"
+            increment = colors[0] + str(val0-valn) + colors[2]
         elif increment < 0 and sign != "+":
-            increment = "\033[1;31;40m" + str(val0-valn) + "\033[0m"
+            increment = colors[1] + str(val0-valn) + colors[2]
         else:
             continue
-        table_print.append([col, val0, valn, increment])
-    table_print = sorted(table_print, key = keysort, reverse = True)
-    table_print = [("Metabolite", "Initial Value", "Final Value", "Increment")] + table_print
-    for tup in table_print:
-        for el in tup:
-            print(el, end = "\t")
-        print("\n")
-    return [el[0] for el in table_print]
+        table_print.append((col, val0, valn, increment))
+    if colors[0]:
+        table_print = sorted(table_print, key = keysort, reverse = True)
+    else:
+        table_print = sorted(table_print, key = keysortbw, reverse = True)
+
+    table_print = pd.DataFrame(table_print, columns = ("Metabolite", "Initial Value", "Final Value", "Increment"))
+    return table_print
