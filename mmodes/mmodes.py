@@ -143,6 +143,7 @@ class dModel():
         Solves FBA or pFBA
         INPUT: mod, cobra model, so it's able to work as context
         '''
+        # print("Biomass of "+mod.id+" "+str(mod.reactions.Biomass.flux)) ############ DEBUG ############
         if mod == "":
             mod = self.model
         if self.method == "pfba":
@@ -153,7 +154,6 @@ class dModel():
                 self.stuck = True
         elif self.method == "fba":
             mod.optimize()
-        # print("Biomass of "+mod.id+" "+str(mod.reactions.Biomass.flux)) ############ DEBUG ############
         return
 
     def check_feasible(self):
@@ -235,7 +235,7 @@ class Consortium():
         return
 
     def __str__(self):
-        echo = "Consortium MMODES object with {0} volume , {1} as death_rate and {2} models: ".format(self.v, self.death_rate, len(self.models))
+        echo = f"Consortium MMODES object with {self.v} volume, {self.death_rate} as death_rate and {len(self.models)} models: "
         for mod in self.models.values():
             echo += "\n"+mod.__str__()
         return echo
@@ -309,7 +309,7 @@ class Consortium():
                 self.models[met].add_biom(v*float(pert[met]))
             else:
                 # TODO: use a custom warning class MediaWarning
-                warnings.warn("\nMetabolite "+met.name+" wasn't added to media.")
+                warnings.warn(f"\nMetabolite {met} wasn't added to media.")
         return
 
     # TODO: better defined as setter, with a decorator.
@@ -393,19 +393,26 @@ class Consortium():
                         # or dMetabolites has specific Vmax, Km
                         mod.reactions.get_by_id(org.exchanges[met]).lower_bound = self.mm(copy_media[met],org.dMets[met].Vmax, org.dMets[met].Km)
                 # 3) Run pFBA and update volume (it will be properly updated later)
-                org.opt(mod)
-                if self.manifest:
-                    self.manifest.write_fluxes(mod, self.T[-1])
-                if mod.reactions.get_by_id(org.volume.bm).flux > 0:
-                    dBMdt[mID] = org.volume.q*mod.reactions.get_by_id(org.volume.bm).flux - self.death_rate*org.volume.q
-                else:
-                    # wrong behaviour
+                try:
+                    org.opt(mod)
+                    if self.manifest:
+                        self.manifest.write_fluxes(mod, self.T[-1])
+                    if mod.reactions.get_by_id(org.volume.bm).flux > 0:
+                        dBMdt[mID] = org.volume.q*mod.reactions.get_by_id(org.volume.bm).flux - self.death_rate*org.volume.q
+                    else:
+                        # wrong behaviour
+                        dBMdt[mID] = 0
+                    # 4) Updates media with fluxes (just for the next organisms bounds, media
+                    # will be updated later in the ODE execution, self.update_true_ode)
+                    for met, reac in org.exchanges.items():
+                        copy_media[met] += mod.reactions.get_by_id(reac).flux*org.volume.q
+                        dMedia[met] += mod.reactions.get_by_id(reac).flux*org.volume.q
+                except AttributeError: # this workarounds infeasible solutions with gurobi
+                    print(f"\nOrganism {mod.id} couldn't be optimized in time {self.T[-1]}. Setting growth to 0.\n")
+                    if self.manifest:
+                        self.manifest.write_fluxes(load_model(org.path), self.T[-1]) # quite dirty...
                     dBMdt[mID] = 0
-                # 4) Updates media with fluxes (just for the next organisms bounds, media
-                # will be updated later in the ODE execution, self.update_true_ode)
-                for met, reac in org.exchanges.items():
-                    copy_media[met] += mod.reactions.get_by_id(reac).flux*org.volume.q
-                    dMedia[met] += mod.reactions.get_by_id(reac).flux*org.volume.q
+
         # 5) returns ODE system solution[t]
         dQdt = [dBMdt[mod] for mod in sorted(dBMdt)] + [dMedia[met] for met in sorted(dMedia)]
         self.dQdt = dQdt # it will be used by other methods (is_stable, e.g.)
@@ -570,7 +577,7 @@ class Consortium():
                 line += str(self.models[mod].volume.q)+"\t"
             for met in sorted(self.media):
                 line += str(self.media[met])+"\t"
-            f.write(str(self.T[-1])+"\t"+line+"\n")
+            f.write(str(self.T[-1])+"\t"+line[:-1]+"\n")
 
 class ProBar():
     '''
