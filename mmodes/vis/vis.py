@@ -42,7 +42,7 @@ def plot_comm(cons, color_set = "tableau20"):
         # or nominal data color scheme found in http://geog.uoregon.edu/datagraphics/color/Cat_12.txt
         "colors_hex" : ["#ff7f00", "#32ff00", "#19b2ff", "#654cff", "#e51932", "#000000", "#ffff32", "#ff99bf", "#ccbfff", "#a5edff", "#b2ff8c", "#ffff99", "#ffbf7f"],
         # or tableau20 http://tableaufriction.blogspot.com/2012/11/finally-you-can-use-tableau-data-colors.html
-        "tableau20" : ["#1F77B4","#FF7F0E", "#2CA02C", "#D62728", "#9467BD", "#8C564B", "#E377C2", "#7F7F7F", "#17BECF", "#BCBD22", "#AEC7E8", "#98DF8A", "#C5B0D5", "#F7B6D2", "#DBDB8D"]
+        "tableau20" : ["#1F77B4","#FF7F0E", "#2CA02C", "#D62728", "#9467BD", "#8C564B", "#7F7F7F", "#E377C2", "#17BECF", "#BCBD22", "#AEC7E8", "#98DF8A", "#C5B0D5", "#F7B6D2", "#DBDB8D"]
     }
     colors = pallettes[color_set]
     to_plot=pd.read_csv(path, sep='\t', header = 0)
