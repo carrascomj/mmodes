@@ -12,8 +12,7 @@ from decimal import Decimal
 import os
 import re
 from warnings import filterwarnings as wfilt
-np = 0
-requests = 0
+from .models_in import load_model, find_models
 
 class ImplementationError(Exception):
     '''
@@ -23,22 +22,32 @@ class ImplementationError(Exception):
     pass
 
 class Manifest():
-    def __init__(self, models = [], media = {}, fman = "COMETS_manifest.txt", fflux = "flux_log_template.txt", fbiom = "total_biomass_log_template.txt", fmedia = "media_log_template.txt"):
+    def __init__(self, models = [], media = {}, fman = "COMETS_manifest.txt",
+    fflux = "flux_log_template.txt", fbiom = "total_biomass_log_template.txt",
+    fmedia = "media_log_template.txt", comets = True):
         self.fflux = fflux
-        self.fbiom = fbiom
         self.fmedia = fmedia
         self.fman = fman
         self.models = self.get_models(models)
-        self.media = self.get_media(media)
-        self.T = 0
         self.curr_t = 0
-        self.first = 0
+        if comets:
+            self.fbiom = fbiom
+            self.media = self.get_media(media)
+            self.T = 0
+        else:
+            self.fbiom = fman
+            self.first = True
+            self.st = 0 # counter of models annotated for each time
+            self.write_fluxes = self.write_tsv_fluxes
+            # Returns None for compatibility with Consortium class
+            self.write_biomass = lambda : None
+            self.write_media = lambda : None
         self.write_manifest()
 
     def write_manifest(self):
         with open(self.fman, "w") as f:
             # should it write a layout?
-            f.write("LayoutFileName: no_lay.txt\n")
+            f.write("LayoutFileName: None\n")
             for mod in sorted(self.models):
                 f.write("ModelFileName: "+self.models[mod][0].path+"\n")
             f.write("FluxFileName: "+self.fflux+"\n")
@@ -50,7 +59,7 @@ class Manifest():
         '''
         Getter of models attribute
         INPUT -> models: dict
-        OUPUT -> models_out: dictionary of model.id : [cobra_model, 0, num_model]
+        OUPUT -> models_out: dictionary of model.id : [cobra_model, time, num_model]
         '''
         if not models:
             raise ImplementationError("You haven't passed models to Manifest!")
@@ -58,7 +67,7 @@ class Manifest():
             models_out = {}
             num_mod = 1
             for mod in sorted(models):
-                models_out[mod] = [models[mod], 0, str(num_mod)]
+                models_out[mod] = [models[mod], -1, str(num_mod)]
                 num_mod += 1
         return models_out
 
@@ -112,9 +121,9 @@ class Manifest():
             # management of time value is a bit tricky
             self.T += 1
             self.curr_t = t
-        if self.T != self.models[model.id][1] or self.first < len(self.models):
+        if self.T != self.models[model.id][1]:
             # 1st call is the only one being taken
-            self.first += 1
+            # self.first += 1
             self.models[model.id][1] = self.T
             with open(self.fflux, "a") as f:
                 if model.solver.status: # model has been optimized at least 1 time
@@ -123,6 +132,58 @@ class Manifest():
                     f.write("fluxes{"+str(self.T)+"}{1}{1}{"+self.models[model.id][2]+"} = ["+" ".join(['%.2E' % Decimal(0) for reac in model.reactions])+" ];\n")
 
         return
+
+    def write_whole_line(self, sep = "\t", head = False):
+        '''
+        Axiliar function to write_tsv_fluxes() that writes the whole line of fluxes ordered
+        by always the same rule (num_model)
+        INPUT -> sep, string separator
+                head, bool True if line is header
+        '''
+        if not head:
+            line = str(self.curr_t)
+        else:
+            line = "time"
+        for mod in sorted(self.models, key = lambda x: self.models[x][2], reverse = False):
+            # Append all information accumulated separated by tabs
+            line += sep + self.models[mod][3]
+            # and clean it
+            self.models[mod][3] = ""
+        with open(self.fflux, "a") as f:
+            f.write(line+"\n")
+        return
+
+    def write_tsv_fluxes(self, model, t):
+        '''
+        Writes fluxes log file in TSV format
+        INPUT -> t, float representing time
+                model, cobra model object
+        '''
+        # This adds more load on memory but it's faster since there are t/model
+        # less outputs to file. The load on memory could be workaround with a
+        # smarter writting function but that would slow the simulation.
+        if self.first:
+            for mod in self.models:
+                self.models[mod].append("\t".join([reac.id + "_" + mod for reac in self.models[mod][0].model.reactions]))
+            self.write_whole_line(head = True)
+            self.first = False
+
+        if self.curr_t != t:
+            # increment current "t" where all models have been called for each t
+            self.curr_t = t
+            self.st = 0
+        if self.curr_t != self.models[model.id][1]:
+            # 1st call is the only one being annotated
+            self.models[model.id][1] = self.curr_t
+            self.st += 1
+            if model.solver.status: # model has been optimized at least 1 time
+                self.models[model.id][3] = "\t".join(['%.2E' % Decimal(reac.flux) for reac in model.reactions])
+            else:
+                self.models[model.id][3] = "\t".join(["0" for reac in model.reactions])
+            if self.st == len(self.models):
+                self.write_whole_line()
+        return
+
 
 ########################## READ FROM COMETS FUNCTIONS ##########################
 
@@ -163,7 +224,7 @@ def to_comets(model, dir_models):
     else:
         old_v = True
     # Open output file:
-    sbmlInputFile = dir_models + model.description + ".xml.cmt"
+    sbmlInputFile = dir_models + model.id + ".xml.cmt"
     with open(sbmlInputFile, mode='w') as f:
         # Print the S matrix
         f.write("SMATRIX  "+str(len(model.metabolites))+"  "+str(len(model.reactions))+"\n")
@@ -233,8 +294,7 @@ def write_layout(files_model, ex_mets, media, biomasses, outfile = "Consortium_l
     OUPUTS -> creates a COMETS layout in "Consortium_layout.txt
     '''
     # It's important to notice that name of model files are assigned in terms of
-    # model.description. If models are saved without it, the assignment is ASCII
-    # ordered.
+    # model.id. If models are saved without it, the assignment is ASCII ordered.
     with open(outfile, "w") as f:
         # Print lines 1-4
         lines4 = "model_file\t" + "\t".join(files_model)
@@ -435,233 +495,3 @@ def write_flux_line(cha, mod, outp, sep = "\t"):
     with open(outp, "a") as f:
         f.write(fluxes[:-1]+"\n")
 ######################## END READ FROM COMETS FUNCTIONS ########################
-
-############################# MANAGEMENT OF MODELS #############################
-
-def find_models(dir_models, just_path = False):
-    '''
-    Find models in "dir_models" path
-    INPUTS -> dir_models: path to models directory (string)
-            just_path: bool, True if just outputs a string with the path.
-    OUPUT -> list of model objects
-    '''
-    path_models = []
-    for file in os.listdir(dir_models):
-        # Find all sbml or matlab models and exclude comets models
-        if (file.find("xml") != -1 or file.find("mat") != -1) and file.find("xml.cmt") == -1:
-            path_models.append(dir_models+file)
-    if just_path:
-        return path_models
-    models = []
-    strain_number = 1
-    for mod in path_models:
-        models.append(load_model(mod))
-        # models_description attribute will be used to name files, maybe it's
-        # better to just apply "strain_"...
-        if models[-1].description == "":
-            models[-1].description = "strain_" + str(strain_number)
-        strain_number += 1
-    return models
-
-def load_model(model_path):
-    '''
-    Function that loads models
-    '''
-    if hasattr(model_path, "metabolites"):
-        # A cobra model was passed as argument
-        model = model_path
-    else:
-        wfilt("ignore", category=UserWarning)
-        try:
-            model = cobra.io.read_sbml_model(model_path)
-        except:
-            try:
-                model = cobra.io.load_matlab_model(model_path)
-            except:
-                model = cobra.io.load_json_model(model_path)
-    return model
-
-def change_model_prefix(model_path, save_model=None, suffix = r'__91__(\w)__93__'):
-    '''
-    Function that translate model extracellular metabolites to other 'lenguages'
-    '''
-    mod = load_model(model_path)
-    new_model = cobra.Model()
-    new_model.id = mod.id
-    p = re.compile(r'(.+)'+suffix)
-    pb = re.compile(r'biomass', re.I)
-    pdash = re.compile(r'DASH_')
-    for i in mod.reactions:
-        for reactant in i.metabolites:
-            reactant.id=re.sub(pdash, r'',reactant.id)
-            reactant.id=re.sub(p,r'\1[\2]',reactant.id)
-        for react in i.reaction:
-            react=re.sub(p,r'\1[\2]',react)
-        new_model.add_reaction(i)
-    for reac in new_model.reactions:
-        if pb.search(reac.id):
-            new_model.objective = [new_model.reactions.get_by_id(reac.id)]
-            break
-    if save_model != None:
-        cobra.io.write_sbml_model(new_model,save_model)
-    return new_model
-
-# 1. BiGG equivalences (name -> id)
-def download_file(url):
-    '''
-    Function that downloads a file from url
-    '''
-    local_filename = url.split('/')[-1]
-    if not os.path.exists(local_filename):
-        global requests
-        if not requests:
-            import requests
-        # NOTE the stream=True parameter below
-        with requests.get(url, stream=True) as r:
-            with open(local_filename, 'wb') as f:
-                for chunk in r.iter_content(chunk_size=8192):
-                    if chunk: # filter out keep-alive new chunks
-                        f.write(chunk)
-                        # f.flush()
-    return local_filename
-
-
-def lev_distance(seq1,seq2):
-    '''
-    Computes Levenshtein Distance
-    INPUTS -> seq1 and seq2: strings to be compared.
-    OUPUT -> int, Levenshtein distance (score).
-    '''
-    len1 = len(seq1) + 1
-    len2 = len(seq2) + 1
-    mat = np.zeros((len1, len2))
-    for i in range(len1):
-        mat[i,0] = i
-    for i in range(len2):
-        mat[0,i] = i
-    for x in range(1, len1):
-        for y in range(1, len2):
-            if seq1[x-1] == seq2[y-1]:
-                mat [x,y] = min(
-                    mat[x-1, y] + 1,
-                    mat[x-1, y-1],
-                    mat[x, y-1] + 1
-                )
-            else:
-                mat [x,y] = min(
-                    mat[x-1,y] + 1,
-                    mat[x-1,y-1] + 1,
-                    mat[x,y-1] + 1
-                )
-    return (mat[len1 - 1, len2 - 1])
-
-def write_eqs(mod_mets, outp):
-    '''
-    Interactive function, tries to match every metabolite in mod_mets with
-    BiGG database based on name atribute. It accounts for perfect match or
-    best similarity match.
-    INPUTS -> mod_mets: list of COBRA metabolite objects
-            output: string, path to output
-    OUTPUT -> dict, met.name: id BiGG
-    '''
-    print("Comparing with BiGG...\n")
-    # Download all metabolites in BiGG to dict
-    p_num = re.compile(r'^[\d]+$')
-    p_name = re.compile(r'^([\da-zA-Z_\(\)\,\-\: ]+)_[CHONSPW(?:Fe)(?:Co)\d]+$')
-    localf = download_file("http://bigg.ucsd.edu/static/namespace/bigg_models_metabolites.txt")
-    metabolites = {}
-    with open(localf, "r") as dbf:
-        for line in dbf.readlines():
-            linearr = line.split("\t")
-            metabolites[linearr[2]] = linearr[1] # name -> id
-    memod = {}
-    # Charge memo file if output has already been generated
-    if os.path.isfile(outp):
-        with open(outp) as f:
-            reader = csv.DictReader(f, fieldnames = ["id", "name"], delimiter = "\t")
-            memod = {row["name"]: row["id"] for row in reader}
-    bar = ProBar(len(mod_mets))
-    # Match them with model metabolites.
-    dreacs = {}
-    leave = ""
-    with open(outp, "a") as f:
-        for met in mod_mets:
-            if met.name in memod:
-                dreacs[met.name] = memod[met.name]
-                bar.progress(mod_mets.index(met))
-                continue
-            elif met.name in metabolites:
-                matched = metabolites[met.name]
-            else:
-                # Separate name from formula
-                is_match = re.search(p_name, met.name)
-                if is_match:
-                    st_name = is_match.group(1).lower()
-                elif met.name.endswith("_"):
-                    st_name = met.name[:-1].lower()
-                else:
-                    st_name = met.name.lower()
-                best = []
-                best_distance = 100000
-                for seq in metabolites:
-                    candidate = (lev_distance(st_name, seq.lower()),seq)
-                    if best_distance > candidate[0]:
-                        best = [candidate[1]]
-                        best_distance = candidate[0]
-                    elif best_distance == candidate[0]:
-                        best.append(candidate[1])
-                if len(best) == 1 and best_distance < 10:
-                    matched = metabolites[best[0]]
-                else:
-                    # Let the user decide
-                    while True:
-                        print()
-                        print("Several matches were found for", met.name, "with score", str(best_distance))
-                        for i in range(len(best)):
-                            print(i, ". ", metabolites[best[i]], " -> ", best[i], sep = "")
-                        choose = input("Which hit would you like to choose? [0-"+str(len(best)-1)+"]: ")
-                        if p_num.match(choose):
-                            matched = metabolites[best[int(choose)]]
-                            break
-                        else:
-                            ided = input("Non numerical value provided, accept user provided id?[Y/N]: ")
-                            if ided.lower() not in ["no", "n", "nein", "nao", "ez", "non"]:
-                                matched = choose
-                                break
-                            else:
-                                leave = input("Leave unmatched?[Y/N]: ")
-                                if leave.lower() not in ["no", "n", "nein", "nao", "ez", "non"]:
-                                    matched = met.id
-                    print()
-            line = matched+"\t"+met.name
-            if leave.lower() in ["no", "n", "nein", "nao", "ez", "non"]:
-                # to DEBUG
-                line += "\tUNMATCHED"
-            f.write(line + "\n")
-            dreacs[met.name] = matched
-            bar.progress(mod_mets.index(met))
-    print("Searching BiGG finished.\n")
-    return dreacs
-
-# 2. Main call to translation with Levenshtein method.
-def healthy_translate(mod, outp = False, memo = "metabolites_modelxBiGG.tsv"):
-    '''
-    Function that translates model extracellular metabolites to BiGG nomenclature
-    based on name of metabolites.
-    INPUTS -> mod: string, path to sbml model
-              output: string, path to output or False to don't write output
-    OUPUT -> model translated
-    '''
-    model = load_model(mod)
-    ex_mets = []
-    for met in model.metabolites:
-        if met.compartment == 'e' or met.compartment == 'e0':
-            ex_mets.append(met)
-    dcomps = write_eqs(ex_mets, memo)
-    for met in ex_mets:
-        model.metabolites.get_by_id(met.id).id = dcomps[met.name]+"_e"
-    if outp:
-        cobra.io.write_sbml_model(model, outp)
-    return model
-
-########################### END MANAGEMENT OF MODELS ###########################

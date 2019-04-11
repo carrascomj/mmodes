@@ -30,6 +30,7 @@ class NoBiomassException(Exception):
     Biomass is needed to follow growth!
     '''
     pass
+
 class NotIntegratorError(Exception):
     '''
     When integrator is False... check Consortium.run() parameters
@@ -57,8 +58,8 @@ class Volume():
         INPUT -> COBRA model object
         OUTPUT -> biomass rection cobra object
         '''
-        # There are some strange models that have a biomas exchange reaction,
-        # so it doesn't properly works sometimess.
+        # There are some strange biomass exchange reactions, so it doesn't properly
+        # work sometimes.
         for reac in model.reactions:
             if reac.id.lower().find("biomass") != -1 and reac not in model.exchanges:
                 bm = reac.id
@@ -149,7 +150,7 @@ class dModel():
         if self.method == "pfba":
             try:
                 cobra.flux_analysis.pfba(mod)
-            except:
+            except: # TODO: specify the exception
                 mod.optimize()
                 self.stuck = True
         elif self.method == "fba":
@@ -161,8 +162,8 @@ class dModel():
             if self.method == "pfba":
                 try:
                     cobra.flux_analysis.pfba(mod)
-                except:
-                    raise InfeasibleSolution(f"pFBA is infeasiable for model {mod.id}. You may want to change the method param to 'fba'.")
+                except: # TODO: specify the exception
+                    raise InfeasibleSolution(f"pFBA is infeasiable for model {mod.id}. You may want to change the 'method' param to 'fba'.")
             elif self.method == "pfba":
                 try:
                     mod.optimize()
@@ -212,7 +213,9 @@ class Consortium():
         -> run() is the main method, which controls the simulation.
         *-> plot_comm() is a function in "vis" dependency required to plot the output
     '''
-    def __init__(self, media = {}, models = {}, max_growth = 10, death_rate = 0, v = 1, timeStep = 0.1, mets_def = [], defaultKm = 0.01, defaultVmax = 20, stcut = 1e-4, title = "draft_cons", mets_to_plot = [], work_based_on = "id", manifest = ""):
+    def __init__(self, media = {}, models = {}, max_growth = 10, death_rate = 0,
+    v = 1, timeStep = 0.1, mets_def = [], defaultKm = 0.01, defaultVmax = 20, stcut = 1e-4,
+    title = "draft_cons", mets_to_plot = [], work_based_on = "id", manifest = "", comets_output = False):
         self.models = models
         self.v = v # volume is in liters
         self.max_growth = max_growth
@@ -228,6 +231,7 @@ class Consortium():
         self.mets_to_plot = mets_to_plot
         self.orgs_to_plot = ""
         self.manifest = manifest
+        self.comets = comets_output
         self.identifier = work_based_on.lower()
         if self.identifier in ("name", "names"):
             self.identifier = "name"
@@ -334,7 +338,11 @@ class Consortium():
 
     def get_manifest(self, manifest):
         if manifest:
-            return Manifest(models = self.models, media = self.media, fman = manifest)
+            if not self.comets:
+                return Manifest(models = self.models, media = self.media, fflux = "fluxes.tsv",
+                fmedia = self.output, comets = False)
+            else:
+                return Manifest(models = self.models, media = self.media, fman = manifest, comets = True)
         else:
             return ""
 
@@ -537,16 +545,17 @@ class Consortium():
             step += 1
             solver.integrate(maxT, step=True)
             # 2.2. Update object consortium parameters
-            self.T.append(solver.t)
             self.update_true_ode(solver.y)
+            # write media before appending time
+            self.write_plot_tsv()
+            self.T.append(solver.t)
             # 2.3. Check if stationary phase, else continue
             self.is_stable()
-            self.write_plot_tsv()
             if verbose:
                 bar.progress(self.T[-1])
-        # 3. Final message. Check why it was finished
+        # 3. Plot and final message, to check why it was finished
         if plot:
-            plot_comm(cons)
+            plot_comm(self)
         if verbose:
             if self.stopDFBA[0]:
                 print(self.stopDFBA[1])
@@ -570,7 +579,7 @@ class Consortium():
                 self.orgs_to_plot = line1.split(sep = "\t")[:-1]
                 for met in sorted(self.media):
                     line1 += met+"\t"
-                f.write("time"+"\t"+line1+"\n")
+                f.write("time"+"\t"+line1[:-1]+"\n")
         with open(self.output, "a") as f:
             line = ""
             for mod in sorted(self.models):
