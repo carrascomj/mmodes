@@ -8,7 +8,6 @@
 # e-mail: jorge.cmuriel@alumnos.upm.es
 # Date of first version: 30/12/2018
 
-import sys
 import os
 import re
 import cobra
@@ -21,6 +20,7 @@ from mmodes.io import Manifest
 from mmodes.io import load_model
 from mmodes.vis import plot_comm
 from . import _fsolvers
+from mmodes.io.models_in import ProBar
 
 
 class NoBiomassException(Exception):
@@ -90,6 +90,8 @@ class dModel():
         self.exchanges = self.get_exchange_reactions() # dict met:exchange reactio
         self.dMets = dMets
         self.model.solver = solver
+        if solver == "glpk":
+            self.model.solver.timeout = 3 # avoid "glpk" hangs
         self.stuck = False
         self.method = method
         self.free_media()
@@ -232,10 +234,7 @@ class Consortium():
         self.orgs_to_plot = ""
         self.manifest = manifest
         self.comets = comets_output
-        self.identifier = work_based_on.lower()
-        if self.identifier in ("name", "names"):
-            self.identifier = "name"
-            self.cobrunion = self.cobrunion_names
+        self.identifier = "name" if work_based_on.lower() in ["name", "names"] else "id"
         return
 
     def __str__(self):
@@ -269,23 +268,7 @@ class Consortium():
                 if not met.compartment:
                     print(f"{met.id} with name {met.name} haven't got an specified compartment attribute.")
                 elif met.compartment in ['e', 'e0', 'ExtraCellular', 'extracellular']:
-                    ex_mets.add(met.id)
-        return ex_mets
-
-    def cobrunion_names(self):
-        '''
-        Union of metabolites of the models as a list (name version)
-        OUPUT -> list of union of extracellular metabolites
-        '''
-        models = self.models.values()
-        ex_mets = set()
-        for model in models:
-            for met in model.model.metabolites:
-                if not met.compartment:
-                    print(f"{met.id} with name {met.name} haven't got an specified compartment attribute.")
-                    print("You may run as work_based_on='id'")
-                elif met.compartment in ['e', 'e0', 'ExtraCellular', 'extracellular']:
-                    ex_mets.add(met.name)
+                    ex_mets.add(met.__getattribute__(self.identifier))
         return ex_mets
 
     def add_model(self, mod_path, volume_0, solver = "glpk", method = "pfba", dMets = {}):
@@ -377,7 +360,7 @@ class Consortium():
                     copy_media[met] += self.mets_def[met].concentration_fed
                     dMedia[met] = self.mets_def[met].concentration_fed
         for mID in ran_mods_id:
-            # use model as a context, to restore possible changes in bounds later
+            # use model as a context, to restore possible changes in bounds later.
             # I guess it breaks backwards compatibility with cobra versions but it's lighter.
             org = self.models[mID]
             if not org.volume.q:
@@ -587,22 +570,3 @@ class Consortium():
             for met in sorted(self.media):
                 line += str(self.media[met])+"\t"
             f.write(str(self.T[-1])+"\t"+line[:-1]+"\n")
-
-class ProBar():
-    '''
-    Just a simple progress bar object to output on screen
-    '''
-    def __init__(self, n, blength = 20):
-        self.n = n
-        self.blength = 20
-        self.progress(0)
-
-    def progress(self, pro):
-        pro = pro/self.n
-        block = int(round(self.blength*pro))
-        bar = "\rRunning... [" + "#"*block + "-"*(self.blength-block) + "] " + '{:.2f}'.format(pro*100) + "%"
-        if pro == 1:
-            bar += " DONE!\n"
-        # I don't really know if this properly works on every IDE.
-        sys.stdout.write(bar)
-        sys.stdout.flush()

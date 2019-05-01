@@ -187,17 +187,21 @@ class Manifest():
 
 ########################## READ FROM COMETS FUNCTIONS ##########################
 
-def cobrunion(models=[], AGORA = True):
+def cobrunion(models = [], based_on = "id"):
     '''
-    union of the models as a list
-    INPUT -> list of model_objects
+    Union of the models as a list
+    INPUTS -> models, list of Cobra Model objects,
+            based_on: string, "id" or "name", choose whatever you want.
     OUPUT -> list of union of extracellular metabolites
     '''
+    piece = "name" if based_on.lower() in ["name", "names"] else "id"
     ex_mets = set()
     for model in models:
         for met in model.metabolites:
-            if met.compartment == 'e' or met.compartment == 'e0':
-                ex_mets.add(met.id)
+            if not met.compartment:
+                print(f"{met.id} with name {met.name} haven't got an specified compartment attribute.")
+            elif met.compartment in ['e', 'e0', 'ExtraCellular', 'extracellular']:
+                ex_mets.add(met.__getattribute__(piece))
     return ex_mets
 
 def json_parser(path):
