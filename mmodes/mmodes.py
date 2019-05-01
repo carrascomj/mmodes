@@ -14,7 +14,7 @@ import cobra
 import random
 import warnings
 import numpy as np
-from scipy.integrate import ode # "integrate" module is not importable!
+from scipy.integrate import BDF, RK45, LSODA # "integrate" module is not importable!
 from copy import deepcopy as dcp
 from mmodes.io import Manifest
 from mmodes.io import load_model
@@ -468,7 +468,7 @@ class Consortium():
             3) advances one step of ODE solver
             4) updates values in object of biomasses and media concentrations
         '''
-        def dqdt(t, y, mod, log_texts = False):
+        def dqdt(t, y, mod = self, log_texts = False):
             '''
             Return the dQdt system of ODEs defined from the flux solutions
             '''
@@ -480,53 +480,46 @@ class Consortium():
         # 1. Set parameters of solver
         integratorSet = False
         nMaxSteps = stepChoiceLevel[2]
-        if integrator.upper() == "FEA":
+        # TODO: actualize this with new scipy integrate
+        if self.manifest and isinstance(self.manifest, str):
+            self.manifest = self.get_manifest(self.manifest)
+        if integrator.upper() == "FEA": # custom
             solver = _fsolvers.FEA(f = dqdt, dt = stepChoiceLevel[0], mod = self)
             q0, t0 = self.get_conditions()
             solver.set_initial_value(q0, t0)
             step = 0
-        elif integrator.upper() in ["RK", "RUNGEKUTTA", "RK4"]:
+        elif integrator.upper() in ["FRK", "FRUNGEKUTTA", "FRK4"]: # custom
             solver = _fsolvers.RungeKutta4(f = dqdt, dt = stepChoiceLevel[0], mod = self)
             q0, t0 = self.get_conditions()
             solver.set_initial_value(q0, t0)
             step = 0
-        else:
+        else: # scipy
             # as in DAPHNE, https://github.com/QTB-HHU/daphne_ecoli-diauxie (Succurro et al., 2018)
-            solver = ode(dqdt).set_integrator(integrator)
-            if integrator in ['dopri5', 'lsoda']:
+            step = 0
+            substeps = 0
+            eventIdx = 1
+            if integrator in ['RK', 'lsoda']:
                 nMaxSteps -= 1
                 # In this case: stepChoiceLevel=(0,endValue, nSteps)
                 grid_t = np.linspace(stepChoiceLevel[0], stepChoiceLevel[1], stepChoiceLevel[2])
                 grid_dt = grid_t[1] - grid_t[0]
-                solver.set_integrator(integrator, nsteps=1, max_step=grid_dt)
-                integratorSet = True
+                q0, t0 = self.get_conditions()
+                if integrator == 'lsoda':
+                    solver = LSODA(dqdt, t0, q0, max_step=grid_dt, t_bound = maxT)
+                else:
+                    solver = RK(dqdt, t0, q0, max_step=grid_dt, t_bound = maxT)
             else:
                 # maybe vode should be the only option.
-                solver.set_integrator(integrator, min_step=stepChoiceLevel[0], max_step=stepChoiceLevel[1], method = 'bdf', order = 5)
-                integratorSet = True
-            if integratorSet:
-                # set the parameters of the differential function dqdt: model and verbosity
-                solver.set_f_params(self, verbose)
-                # suppress Fortran-printed warning
-                solver._integrator.iwork[2] = -1
-                warnings.filterwarnings("ignore", category=UserWarning)
                 q0, t0 = self.get_conditions()
-                solver.set_initial_value(q0, t0)
-                step = 0
-                substeps = 0
-                eventIdx = 1
-            else:
-                raise NotIntegratorError("ODE Parameters weren't properly supplied.")
+                solver = BDF(dqdt, t0, q0, max_step=stepChoiceLevel[1], t_bound = maxT)
         if verbose:
             bar = ProBar(maxT)
-        if self.manifest and isinstance(self.manifest, str):
-            self.manifest = self.get_manifest(self.manifest)
 
         # 2. ODE solver loop.
         while not self.stopDFBA[0] and self.T[-1] < maxT and step < nMaxSteps:
             # 2.1. Advances in solver
             step += 1
-            solver.integrate(maxT, step=True)
+            solver.step()
             # 2.2. Update object consortium parameters
             self.update_true_ode(solver.y)
             # write media before appending time
