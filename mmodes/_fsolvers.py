@@ -24,14 +24,14 @@ class ODESolver():
 
 class FEA(ODESolver):
     ''' Forward Euler Approach '''
-    def step(self, maxT, step):
+    def integrate(self, maxT, step):
         dt, y, t, f, = self.dt, self.y, self.t, self.f
         self.y = y + dt*f(y, t)
         self.t = t + dt
 
 class RungeKutta4(ODESolver):
     ''' 4th-order Runge Kutta method '''
-    def step(self, maxT, step):
+    def integrate(self, maxT, step):
         dt, y, t, f, = self.dt, self.y, self.t, self.f
         dt2 = dt/2.0
         K1 = dt*f(y, t)
