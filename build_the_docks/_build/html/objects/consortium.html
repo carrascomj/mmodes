@@ -1,0 +1,172 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>The Consortium Object &#8212; MMODES  documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="The dModel Object" href="dModel.html" />
+    <link rel="prev" title="Installing MMODES" href="../usage/installation.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="the-consortium-object">
+<span id="consortiumob"></span><h1>The Consortium Object<a class="headerlink" href="#the-consortium-object" title="Permalink to this headline">¶</a></h1>
+<p>The Consortium Class is the central axis of the MMODES package.
+It carries all the necessary parameters to run a dynamic simulation.</p>
+<div class="section" id="most-common-parameters">
+<h2>Most common parameters<a class="headerlink" href="#most-common-parameters" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="Consortium">
+<em class="property">class </em><code class="sig-name descname">Consortium</code><span class="sig-paren">(</span><em class="sig-param">max_growth = 10</em>, <em class="sig-param">death_rate = 0</em>, <em class="sig-param">v = 1</em>, <em class="sig-param">stcut = 1e-4</em>, <em class="sig-param">title = &quot;draft_cons&quot;</em>, <em class="sig-param">mets_to_plot = []</em>, <em class="sig-param">work_based_on = &quot;id&quot;</em>, <em class="sig-param">manifest = &quot;&quot;</em>, <em class="sig-param">comets_output = False</em><span class="sig-paren">)</span><a class="headerlink" href="#Consortium" title="Permalink to this definition">¶</a></dt>
+<dd><ul class="simple">
+<li><p><strong>v</strong> is the volume of the modeled space. It’s important to work with concentrations (<em>default = 1</em>).</p></li>
+<li><p><strong>stcut</strong> is the limit of biomass flux (growth increment) where the simulation is considered to have reached a stable state and stops. Turn to a negative number to keep the simulation running (<em>default = 1e-4</em>).</p></li>
+<li><p><strong>title</strong> is just to write it in a possible automatically generated plot of the simulation</p></li>
+<li><p><strong>mets_to_plot</strong> are the metabolites to be later plotted.</p></li>
+<li><p><strong>work_based_on</strong> <em>(=”id” | “name”)</em> is a REALLY important parameter. It indicates whether extracelullar metabolite names or ids should be used to communicate models and understand the medium. One should use the attribute (id or name) that is consistent among all the GEM models (just consistency on the extracellular metabolites is required) (<em>default = “id”</em>)</p></li>
+<li><p><strong>manifest</strong>: if a non-empty string is provided, it will output a fluxes tsv to this path (default=”“).</p></li>
+</ul>
+</dd></dl>
+
+</div>
+<div class="section" id="setting-models">
+<h2>Setting models<a class="headerlink" href="#setting-models" title="Permalink to this headline">¶</a></h2>
+<p>dModel objects are containers of COBRA model objects, with some
+features to compute the multi-strain simulation. More information
+can be found on _dModel_obj. The method to add GEM models to the <a class="reference internal" href="#Consortium" title="Consortium"><code class="xref py py-class docutils literal notranslate"><span class="pre">Consortium</span></code></a>
+is the following:</p>
+<dl class="method">
+<dt id="Consortium.add_model">
+<code class="sig-prename descclassname">Consortium.</code><code class="sig-name descname">add_model</code><span class="sig-paren">(</span><em class="sig-param">mod_path</em>, <em class="sig-param">volume_0</em>, <em class="sig-param">solver = &quot;glpk&quot;</em>, <em class="sig-param">method = &quot;pfba&quot;</em>, <em class="sig-param">dMets = {}</em>, <em class="sig-param">limit = False</em><span class="sig-paren">)</span><a class="headerlink" href="#Consortium.add_model" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<ul class="simple">
+<li><p><strong>mod_path</strong>, string: path to the model in SBML, MAT or JSON format.</p></li>
+<li><p><strong>volume_0</strong>, float: initial concentration (usually, g/L) of biomass.</p></li>
+<li><p><strong>dMets</strong>: dictionary of metabolite.id : dMetabolites</p></li>
+<li><p><strong>limit</strong>: maximum biomass values that is allowed for this particular dModel.</p></li>
+</ul>
+<p>More information can be found on the <a class="reference internal" href="dModel.html"><span class="doc">The dModel Object</span></a>..</p>
+</div>
+<div class="section" id="setting-media">
+<h2>Setting media<a class="headerlink" href="#setting-media" title="Permalink to this headline">¶</a></h2>
+<p>Consortium.media is a simple dictionary of metabolite ids/names : concentrations.
+It can be passed as a simple dictionary Also,
+a handy method is provided to read from a JSON file object (with the form of a dictionary).</p>
+<dl class="method">
+<dt id="Consortium.set_media">
+<code class="sig-prename descclassname">Consortium.</code><code class="sig-name descname">set_media</code><span class="sig-paren">(</span><em class="sig-param">media</em>, <em class="sig-param">concentration = False</em><span class="sig-paren">)</span><a class="headerlink" href="#Consortium.set_media" title="Permalink to this definition">¶</a></dt>
+<dd><p>Adds <strong>media</strong> as the Consortium medium object. If concentration is True, values of the dictionary
+will be converted to concentrations (using the volume parameter).</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Consortium.media_from_json">
+<code class="sig-prename descclassname">Consortium.</code><code class="sig-name descname">media_from_json</code><span class="sig-paren">(</span><em class="sig-param">jfile</em>, <em class="sig-param">concentration = False</em><span class="sig-paren">)</span><a class="headerlink" href="#Consortium.media_from_json" title="Permalink to this definition">¶</a></dt>
+<dd><p>Uploads medium from a <strong>jfile</strong> path. This path corresponds to a JSON file which contains a dictionary.</p>
+</dd></dl>
+
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">MMODES</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../usage/quickstart.html">Getting started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage/installation.html">Installing MMODES</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">The Consortium Object</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#most-common-parameters">Most common parameters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#setting-models">Setting models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#setting-media">Setting media</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="dModel.html">The dModel Object</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="../usage/installation.html" title="previous chapter">Installing MMODES</a></li>
+      <li>Next: <a href="dModel.html" title="next chapter">The dModel Object</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, Jorge Carrasco Muriel.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.1.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/objects/consortium.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
