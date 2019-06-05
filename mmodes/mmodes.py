@@ -200,7 +200,7 @@ class dModel():
                 try:
                     mod.optimize()
                 except:
-                    raise InfeasibleSolution(f"FBA is infeasiable for model {mod.id}. You may want to check your model.")
+                    raise InfeasibleSolution(f"FBA is infeasible for model {mod.id}. You may want to check your model.")
 
     def add_dMet(self, met):
         '''
@@ -240,7 +240,7 @@ class Consortium():
     Main object were simulations are computed. It keeps dModels in a dictionary
     of id: <dModel>, media in a dictionary of met.id : <COBRA metabolite>, mets
     with specified experimental Michaellis Menten in a dictionary of met.id :
-    <dMetabolites> and other parameters of the simulationselfself.
+    <dMetabolites> and other parameters of the simulation.
         -> dinamicpFBA is where dModels are updated and optimized to compute biomass.
         -> run() is the main method, which controls the simulation.
         *-> plot_comm() is a function in "vis" dependency required to plot the output
@@ -357,6 +357,12 @@ class Consortium():
                 else:
                     media0[met] = 0
         return media0
+
+    def medium_from_json(self, jpath, concentration = False):
+        ''' Read medium from JSON file'''
+        import json
+        with open(jpath) as jdata:
+            self.media = self.set_media(json.load(jdata), concentration)
 
     def get_manifest(self, manifest):
         if manifest:
