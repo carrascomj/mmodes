@@ -14,7 +14,7 @@ import cobra
 import random
 import warnings
 import numpy as np
-from scipy.integrate import ode # "integrate" module is not importable!
+from scipy.integrate import ode
 from copy import deepcopy as dcp
 from mmodes.io import Manifest
 from mmodes.io import load_model
@@ -72,7 +72,6 @@ class Volume():
     def dupdate(self):
         '''
         Update value of biomass concentration
-        INPUT -> volume
         '''
         self.q += self.bm.value*self.q
         return self.bm.value*self.q
@@ -82,8 +81,8 @@ class dModel():
     Expanded COBRA model object that Consortium object will manage to run the
     dynamic simulations.
     '''
-    def __init__(self, mod_path, volume_0, solver = "glpk", method = "pfba", dMets = {}, work_based_on = "id"):
-        self.path = mod_path
+    def __init__(self, mod_path, volume_0, solver = "glpk", method = "pfba", dMets = {}, work_based_on = "id", limit = False):
+        self.path = mod_path if type(mod_path) is str else "Unknown"
         self.model = load_model(mod_path) # cobra model
         self.volume = Volume(volume_0, self.model) # volume object
         self.identifier = work_based_on.lower()
@@ -93,6 +92,8 @@ class dModel():
         if solver == "glpk":
             self.model.solver.timeout = 3 # avoid "glpk" hangs
         self.stuck = False
+        self._death_rate = 0
+        self.limit = limit
         self.method = method
         self.free_media()
         self.check_feasible()
@@ -101,10 +102,39 @@ class dModel():
     def __str__(self):
         return "MMODES model object of {0}, path in {1} and actual biomass of {2}".format(self.model.id, self.path, self.volume.q)
 
+    @property
+    def death_rate(self):
+        '''
+        Private property just to apply the limit feature. If true -> dBM = 0
+        '''
+        return self._death_rate
+
+    @death_rate.setter
+    def death_rate(self, value):
+        '''
+        If value is a COBRA model and self.limit is true, the biomass reaction
+        flux will be set to make dBM 0. Else, it's a normal setter.
+        If limit is numeric, it won't affect death_rate until biomass of the
+        model (g) reaches this limit value.
+        '''
+        try:
+            self._death_rate = float(value)
+        except TypeError:
+            try:
+                if self.limit:
+                    if type(self.limit) == bool: # never growing
+                        self._death_rate = value.reactions.get_by_id(self.volume.bm).flux
+                    elif (type(self.limit == float) or type(self.limit == float)):
+                        q = self.volume.q
+                        if q >= limit: # it's reached the maximum biomass
+                            vBM = value.reactions.get_by_id(self.volume.bm).flux
+                            self._death_rate = vBM - 1 + limit/q # so dBM = q - limit
+            except AttributeError:
+                return
+
     def update(self):
         '''
         Updates value of biomass concentration
-        INPUT ->º volume
         '''
         return self.volume.dupdate()
 
@@ -166,7 +196,7 @@ class dModel():
                     cobra.flux_analysis.pfba(mod)
                 except: # TODO: specify the exception
                     raise InfeasibleSolution(f"pFBA is infeasiable for model {mod.id}. You may want to change the 'method' param to 'fba'.")
-            elif self.method == "pfba":
+            elif self.method == "fba":
                 try:
                     mod.optimize()
                 except:
@@ -221,7 +251,7 @@ class Consortium():
         self.models = models
         self.v = v # volume is in liters
         self.max_growth = max_growth
-        self.death_rate = death_rate
+        self.__media = {}
         self.media = self.set_media(media, concentration = True) # dict met.id : concentration
         self.mets_def = self.set_dMetabolites(mets_def) # dict of dMetabolite objects
         self.Km = defaultKm
@@ -238,7 +268,7 @@ class Consortium():
         return
 
     def __str__(self):
-        echo = f"Consortium MMODES object with {self.v} volume, {self.death_rate} as death_rate and {len(self.models)} models: "
+        echo = f"Consortium MMODES object with {self.v} volume and {len(self.models)} models: "
         for mod in self.models.values():
             echo += "\n"+mod.__str__()
         return echo
@@ -271,12 +301,17 @@ class Consortium():
                     ex_mets.add(met.__getattribute__(self.identifier))
         return ex_mets
 
-    def add_model(self, mod_path, volume_0, solver = "glpk", method = "pfba", dMets = {}):
+    def add_model(self, mod_path, volume_0, solver = "glpk", method = "pfba", dMets = {}, limit = False):
         '''
         Adds a model to the consortium
         '''
-        mod = dModel(mod_path, volume_0 * self.v, solver, method, dMets, work_based_on = self.identifier)
-        self.models[mod.model.id] = mod
+        if type(limit) != bool:
+            limit *= v # concentration to mass
+        mod = dModel(mod_path, volume_0 * self.v, solver, method, dMets, work_based_on = self.identifier, limit = limit)
+        if mod.model.id not in self.models:
+            self.models[mod.model.id] = mod
+        else:
+            self.models[mod.model.id+"_"+str(len(self.models))] = mod
         # If metabolite already in another model, refresh value will be replaced
         self.mets_def.update(mod.dMets)
         self.media = self.set_media(self.media)
@@ -304,17 +339,21 @@ class Consortium():
         '''
         Set self.media, as extracellular metabolites in all models updated
         with initial concentrations
-        INPUT -> media, dict of inital concentrations in media,
-            concentration -> bool, True in 1st call, to multiply per volume
+        INPUT -> media: dictionary, inital concentrations in media,
+            concentration: bool, True in 1st call, to multiply per volume
         OUPUT -> media0, dict of all extracellular metabolites initialized
         '''
+        # It's important to keep previous settings of media even if some metabolites
+        # aren't added to the medium. If a new model is later appended, some of the
+        # "incorrect" metabolites (not in current GEMs ex space) could be effective.
+        self.__media.update(media)
         media0 = {}
-        if self.models: # empty sequences are false...
+        if self.models:
             v = self.v if concentration else 1
             ex_mets = self.cobrunion()
             for met in ex_mets:
-                if met in media:
-                    media0[met] = float(media[met])*v
+                if met in self.__media:
+                    media0[met] = float(self.__media[met])*v
                 else:
                     media0[met] = 0
         return media0
@@ -343,7 +382,7 @@ class Consortium():
         '''
         f in ODEsolver, computes dBM and dC
         INPUT -> t: timestep, just to compute refresment of media
-               dC
+               log_texts: ignore this parameter.
         OUPUT -> numpy array ([dBM/dt]+[dCj/dt]])
         '''
         dBMdt = {k: 0 for k in self.models}
@@ -364,7 +403,7 @@ class Consortium():
             # I guess it breaks backwards compatibility with cobra versions but it's lighter.
             org = self.models[mID]
             if not org.volume.q:
-                # Biomass of organism = 0
+                # Biomass of organism = 0, don't waste resources here
                 dBMdt[mID] = 0
                 if self.manifest:
                     self.manifest.write_fluxes(org.model, self.T[-1])
@@ -389,7 +428,8 @@ class Consortium():
                     if self.manifest:
                         self.manifest.write_fluxes(mod, self.T[-1])
                     if mod.reactions.get_by_id(org.volume.bm).flux > 0:
-                        dBMdt[mID] = org.volume.q*mod.reactions.get_by_id(org.volume.bm).flux - self.death_rate*org.volume.q
+                        org.death_rate = mod
+                        dBMdt[mID] = org.volume.q*mod.reactions.get_by_id(org.volume.bm).flux - org.death_rate*org.volume.q
                     else:
                         # wrong behaviour
                         dBMdt[mID] = 0
@@ -401,7 +441,8 @@ class Consortium():
                 except AttributeError: # this workarounds infeasible solutions with gurobi
                     print(f"\nOrganism {mod.id} couldn't be optimized in time {self.T[-1]}. Setting growth to 0.\n")
                     if self.manifest:
-                        self.manifest.write_fluxes(load_model(org.path), self.T[-1]) # quite dirty...
+                        #self.manifest.write_fluxes(load_model(org.path), self.T[-1]) # quite dirty...
+                        self.manifest.write_fluxes(org_model, self.T[-1]) # TODO: see if works
                     dBMdt[mID] = 0
 
         # 5) returns ODE system solution[t]
@@ -439,6 +480,7 @@ class Consortium():
         return
 
     def get_conditions(self):
+        ''' Get initial conditions to start the integrator'''
         t = self.T[-1]
         q = [self.models[mod].volume.q for mod in sorted(self.models)] + [self.media[met] for met in sorted(self.media)]
         return q,t
@@ -557,7 +599,7 @@ class Consortium():
                 line1 = ""
                 i = 1
                 for mod in sorted(self.models):
-                    line1 += mod+"\t" if mod != "" else "biomass"+srt(i)+"\t"
+                    line1 += mod+"\t" if mod != "" else "biomass"+str(i)+"\t"
                     i += 1
                 self.orgs_to_plot = line1.split(sep = "\t")[:-1]
                 for met in sorted(self.media):

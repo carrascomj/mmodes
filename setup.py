@@ -13,6 +13,6 @@ setup(name='mmodes',
       license='MIT',
       packages=find_packages(),
       install_requires=[
-          'cobra>=0.14.1', 'numpy', 'pandas', 'matplotlib', 'scipy'
+          'cobra>=0.14.1', 'numpy', 'pandas', 'matplotlib', 'scipy', 'dill'
       ],
       zip_safe=False)
