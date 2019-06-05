@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 
-# I/O utilities to manage and translate models to one 'lenguage'.
+# I/O utilities to manage and translate models to one 'language'. This is utterly
+# important in order to work with multi-strain consortiums.
 #   0. Utility functions:
 #       0.1. find_models
 #       0.2. load_model
 #   change_model_prefix
-#   1. Tranlation worflow extracellular ids to BiGG
-#   2. Translation workflow extracellular names/ids from pool (model based)
+#   1. Translation workflow extracellular names/ids from pool of models/Consortium
 
 # Author: Jorge Carrasco Muriel
 # e-mail: jorge.cmuriel@alumnos.upm.es
@@ -16,7 +16,6 @@ import cobra
 import os, re, sys
 from warnings import filterwarnings as wfilt
 # global variables that refers to not yet loaded packages
-requests = 0
 np = 0
 cobrunion = 0
 csv = 0
@@ -32,8 +31,8 @@ def find_models(dir_models, just_path = False):
     '''
     path_models = []
     for file in os.listdir(dir_models):
-        # Find all sbml or matlab models and exclude comets models
-        if (file.find("xml") != -1 or file.find("mat") != -1) and file.find("xml.cmt") == -1:
+        # Find all sbml or matlab
+        if file.endswith("xml") != -1 or file.endswith("mat") != -1:
             path_models.append(dir_models+file)
     if just_path:
         return path_models
@@ -60,9 +59,12 @@ def load_model(model_path):
             model = cobra.io.load_json_model(model_path)
         except:
             try:
-                model = cobra.io.read_sbml_model(model_path)
-            except:
                 model = cobra.io.load_matlab_model(model_path)
+            except:
+                # read_sbml is the last one to avoid noisy baffling warnings
+                # when it fails, even when it's catched by except. I guess it'll
+                # be fixed on future COBRApy versions, hopefully.
+                model = cobra.io.read_sbml_model(model_path)
     return model
 
 class ProBar():
@@ -80,7 +82,7 @@ class ProBar():
         bar = "\rRunning... [" + "#"*block + "-"*(self.blength-block) + "] " + '{:.2f}'.format(pro*100) + "%"
         if pro == 1:
             bar += " DONE!\n"
-        # I don't really know if this properly works on every IDE.
+        # This works on a shell. On an IDE is quite cumbersome.
         sys.stdout.write(bar)
         sys.stdout.flush()
 ################################################################################
@@ -88,7 +90,7 @@ class ProBar():
 
 def change_model_prefix(model_path, save_model=None, suffix = r'__91__(\w)__93__'):
     '''
-    Function that translate model extracellular metabolites to other 'lenguages'
+    Function that translate model extracellular metabolites to other 'languages'
     '''
     mod = load_model(model_path)
     new_model = cobra.Model()
@@ -111,27 +113,8 @@ def change_model_prefix(model_path, save_model=None, suffix = r'__91__(\w)__93__
         cobra.io.write_sbml_model(new_model,save_model)
     return new_model
 
-############################# TRANSLATION WORKFLOW #############################
+######################### MODEL POOL BASED TRANSLATION #########################
 # 1. BiGG equivalences (name -> id)
-def download_file(url):
-    '''
-    Function that downloads a file from url
-    '''
-    local_filename = url.split('/')[-1]
-    if not os.path.exists(local_filename):
-        global requests
-        if not requests:
-            import requests
-        # NOTE the stream=True parameter below
-        with requests.get(url, stream=True) as r:
-            with open(local_filename, 'wb') as f:
-                for chunk in r.iter_content(chunk_size=8192):
-                    if chunk: # filter out keep-alive new chunks
-                        f.write(chunk)
-                        # f.flush()
-    return local_filename
-
-
 def lev_distance(seq1,seq2):
     '''
     Computes Levenshtein Distance
@@ -160,124 +143,6 @@ def lev_distance(seq1,seq2):
                     mat[x,y-1] + 1
                 )
     return (mat[len1 - 1, len2 - 1])
-
-def write_eqs(mod_mets, outp):
-    '''
-    Interactive function, tries to match every metabolite in mod_mets with
-    BiGG database based on name atribute. It accounts for perfect match or
-    best similarity match.
-    INPUTS -> mod_mets: list of COBRA metabolite objects
-            output: string, path to output
-    OUTPUT -> dict, met.name: id BiGG
-    '''
-    global np
-    global csv
-    if not np:
-        import numpy as np
-    if not csv:
-        import csv
-    print("Comparing with BiGG...\n")
-    # Download all metabolites in BiGG to dict
-    p_num = re.compile(r'^[\d]+$')
-    p_name = re.compile(r'^([\da-zA-Z_\(\)\,\-\: ]+)_[CHONSPW(?:Fe)(?:Co)\d]+$')
-    localf = download_file("http://bigg.ucsd.edu/static/namespace/bigg_models_metabolites.txt")
-    metabolites = {}
-    with open(localf, "r") as dbf:
-        for line in dbf.readlines():
-            linearr = line.split("\t")
-            metabolites[linearr[2]] = linearr[1] # name -> id
-    memod = {}
-    # Load memo file if output has already been generated
-    if os.path.isfile(outp):
-        with open(outp) as f:
-            reader = csv.DictReader(f, fieldnames = ["id", "name"], delimiter = "\t")
-            memod = {row["name"]: row["id"] for row in reader}
-    bar = ProBar(len(mod_mets))
-    # Match them with model metabolites.
-    dreacs = {}
-    leave = ""
-    with open(outp, "a") as f:
-        for met in mod_mets:
-            if met.name in memod:
-                dreacs[met.name] = memod[met.name]
-                bar.progress(mod_mets.index(met))
-                continue
-            elif met.name in metabolites:
-                matched = metabolites[met.name]
-            else:
-                # Separate name from formula
-                is_match = re.search(p_name, met.name)
-                if is_match:
-                    st_name = is_match.group(1).lower()
-                elif met.name.endswith("_"):
-                    st_name = met.name[:-1].lower()
-                else:
-                    st_name = met.name.lower()
-                best = []
-                best_distance = 100000
-                for seq in metabolites:
-                    candidate = (lev_distance(st_name, seq.lower()),seq)
-                    if best_distance > candidate[0]:
-                        best = [candidate[1]]
-                        best_distance = candidate[0]
-                    elif best_distance == candidate[0]:
-                        best.append(candidate[1])
-                if len(best) == 1 and best_distance < 10:
-                    matched = metabolites[best[0]]
-                else:
-                    # Let the user decide
-                    while True:
-                        print()
-                        print("Several matches were found for", met.name, "with score", str(best_distance))
-                        for i in range(len(best)):
-                            print(i, ". ", metabolites[best[i]], " -> ", best[i], sep = "")
-                        choose = input("Which hit would you like to choose? [0-"+str(len(best)-1)+"]: ")
-                        if p_num.match(choose):
-                            matched = metabolites[best[int(choose)]]
-                            break
-                        else:
-                            ided = input("Non numerical value provided, accept user provided id?[Y/N]: ")
-                            if ided.lower() not in ["no", "n", "nein", "nao", "ez", "non"]:
-                                matched = choose
-                                break
-                            else:
-                                leave = input("Leave unmatched?[Y/N]: ")
-                                if leave.lower() not in ["no", "n", "nein", "nao", "ez", "non"]:
-                                    matched = met.id
-                    print()
-            line = matched+"\t"+met.name
-            if leave.lower() in ["no", "n", "nein", "nao", "ez", "non"]:
-                # to DEBUG
-                line += "\tUNMATCHED"
-            f.write(line + "\n")
-            dreacs[met.name] = matched
-            bar.progress(mod_mets.index(met))
-    print("Searching BiGG finished.\n")
-    return dreacs
-
-# 2. Main call to translation with Levenshtein method.
-def translate_from_BiGG(mod, outp = False, memo = "metabolites_modelxBiGG.tsv"):
-    '''
-    Function that translates model extracellular metabolites to BiGG nomenclature
-    based on name of metabolites.
-    INPUTS -> mod: string, path to sbml model
-              output: string, path to output or False to don't write output
-    OUPUT -> model translated
-    '''
-    model = load_model(mod)
-    ex_mets = []
-    for met in model.metabolites:
-        if met.compartment == 'e' or met.compartment == 'e0':
-            ex_mets.append(met)
-    dcomps = write_eqs(ex_mets, memo)
-    for met in ex_mets:
-        model.metabolites.get_by_id(met.id).id = dcomps[met.name]+"_e"
-    if outp:
-        cobra.io.write_sbml_model(model, outp)
-    return model
-################################################################################
-
-######################### MODEL POOL BASED TRANSLATION #########################
 def process_all_formulas(allmets, based_on = "id"):
     '''
     Function that prepares metabolites to be processed in terms of formula.
@@ -399,12 +264,12 @@ def get_metabolites_pool(models_scheme, based_on = "id"):
 def write_eqs_models(allmets, db, outp):
     '''
     Interactive function, tries to match every metabolite in allmets with set of
-    metabolites as "lenguage". It accounts for perfect match on formula and filter
+    metabolites as "language". It accounts for perfect match on formula and filter
     by Levenshtein distance among them.
     INPUTS -> allmets: list of strings (names or ids of COBRA metabolites) to
                         be translated;
             db: list of strings, names or ids of COBRA metabolites in the correct
-                        lenguage;
+                        language;
             outp: string, path to file where output will be written and whose content
                         will be used as memoization speed-up, if possible;
             output: string, path to output.
@@ -509,7 +374,7 @@ def write_eqs_models(allmets, db, outp):
 
 def translate_from_models(model, models_scheme, based_on = "id", scheme_string = False, memo = "", save_model = False):
     '''
-    Translate model's extracellular metabolites (names/ids) to the lenguage of
+    Translate model's extracellular metabolites (names/ids) to the language of
     other models supplied.
     INPUTS -> model, COBRA model object to be translated;
             models_scheme: list of [cobra models or strings] or Consortium object;
@@ -533,7 +398,7 @@ def translate_from_models(model, models_scheme, based_on = "id", scheme_string =
     else: # memo if you can!
         with open("mets_to_translate.p", 'rb') as f:
             mets_to_translate = pickle.load(f)
-    # take extracelullar union of ExtraCellular metabolites to use as lenguage
+    # take extracelullar union of ExtraCellular metabolites to use as language
     print("Working on the pool...")
     if scheme_string:
         metabolites = set(models_scheme)
