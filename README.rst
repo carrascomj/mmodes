@@ -22,6 +22,7 @@ More information about virtualenvs `here <https://www.configserverfirewall.com/u
 Clone this repository and install it via setup.py. On a bash shell:
 
 .. code:: bash
+
     git clone https://github.com/carrascomj/mmodes.git # or ssh
     cd path_to_mmodes/mmodes
     sudo python3 setup.py install
