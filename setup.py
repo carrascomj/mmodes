@@ -5,7 +5,7 @@ def readme():
         return f.read()
 
 setup(name='mmodes',
-      version='0.2.0',
+      version='0.2.1',
       description='Metabolic Models based Ordinary Differential Equations Simulation',
       author='Jorge Carrasco Muriel',
       author_email='jorge.cmuriel@alumnos.upm.es',
@@ -13,6 +13,6 @@ setup(name='mmodes',
       license='MIT',
       packages=find_packages(),
       install_requires=[
-          'cobra>=0.14.1', 'numpy', 'pandas', 'matplotlib', 'scipy', 'dill', 'json'
+          'cobra>=0.14.1', 'numpy', 'pandas', 'matplotlib', 'scipy', 'dill'
       ],
       zip_safe=False)
