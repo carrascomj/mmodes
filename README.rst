@@ -1,3 +1,6 @@
+<p align="center">
+  <img src="build_the_docks/logo.svg" alt="logo" width="400"/>
+</p>
 MMODES
 ======
 MMODES (Metabolic Models based Ordinary Differential Equations Simulation) provides an straight-forward framework to run dynamic simulations of metabolic models consortia using cobrapy and scipy.
