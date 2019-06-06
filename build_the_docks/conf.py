@@ -45,6 +45,13 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
+html_context = {
+    "display_github": True, # Integrate GitHub
+    "github_user": "carrascomj", # Username
+    "github_repo": "mmodes", # Repo name
+    "github_version": "master", # Version
+    "conf_py_path": "/build_the_docks/", # Path in the checkout to the docs root
+}
 html_theme = 'alabaster'
 
 # Add any paths that contain custom static files (such as style sheets) here,
