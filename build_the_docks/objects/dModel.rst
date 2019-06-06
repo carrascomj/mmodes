@@ -26,7 +26,7 @@ At the moment of adding the model, **limit** is a parameter that can be tuned:
 
 * if *False* (default), no limitations will be applied;
 * if *True*, model won't grow, but the solution of fluxes will be used to update the medium and added to the output files;
-* if a *numeric* value is passed, the model will be allowed to grow until this amount is reached, the it will behave as if limit were True.
+* if a *numeric* value is passed, the model will be allowed to grow until this amount is reached, then it will behave as if *limit* = True.
 
 Death rate
 ~~~~~~~~~~

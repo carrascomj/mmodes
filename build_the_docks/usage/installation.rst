@@ -30,4 +30,4 @@ are also used in the package. A cobra version >= 14 should also work, abeit not 
 
 DOCKER Install
 ~~~~~~~~~~~~~~
-A docker container is currently under development for reviewers.
+A docker image is currently under development.

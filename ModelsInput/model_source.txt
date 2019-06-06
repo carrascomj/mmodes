@@ -1,0 +1,2 @@
+Model was download from https://github.com/VirtualMetabolicHuman/AGORA.
+Citation: Magnusdottir, S., Heinken, A., Kutt, L., Ravcheev, D.A., Bauer, E., Noronha, A., Greenhalgh, K., Jager, C., Baginska, J., Wilmes, P., Fleming, R.M.T., Thiele, I., "Generation of genome-scale metabolic reconstructions for 773 members of the human gut microbiota", Nature Biotechnology, 35(1):81-89 (2017).
