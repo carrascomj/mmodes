@@ -1,6 +1,8 @@
-<p align="center">
-  <img src="build_the_docks/logo_f.svg" alt="logo" width="400"/>
-</p>
+
+.. image:: build_the_docks/logo_f.svg
+   :width: 400px
+   :alt: MMDOES logotype
+   :align: center
 
 MMODES
 ======
