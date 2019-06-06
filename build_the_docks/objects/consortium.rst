@@ -21,9 +21,8 @@ Most common parameters
 Setting models
 ~~~~~~~~~~~~~~
 dModel objects are containers of COBRA model objects, with some
-features to compute the multi-strain simulation. More information
-can be found on _dModel_obj. The method to add GEM models to the :py:class:`Consortium`
-is the following:
+features to compute the multi-strain simulation. The method to add GEM models to
+the :py:class:`Consortium` is the following:
 
 .. py:method:: Consortium.add_model(mod_path, volume_0, solver = "glpk", method = "pfba", dMets = {}, limit = False)
 

@@ -32,7 +32,7 @@ Now, we add the model to the Consortium object.
 
 More information of Consortium class can be found on :doc:`../objects/consortium`.
 
-Instantiate the medium
+Instantiating the medium
 ~~~~~~~~~~~~~~~~~~~~~~
 The last step previous to running the simulation is assigning a medium to
 the Consortium. In the `example <https://github.com/carrascomj/mmodes/blob/master/example.py>`_,
@@ -48,9 +48,9 @@ of the model(s) added in the Consortium.
 
 Make sure that all metabolites in medium are named as in the added GEM models.
 MMODES supports working with metabolite ids or names, default is id.
-If some metabolites is mispelled, it won't be added.
+If some metabolites are misspelled, it won't be added.
 Conversely, metabolites present in the extracellular compartment of the GEM members
-of the Consortiums but not added to the medium will be set to 0.
+of the Consortium but not added to the medium will be set to 0.
 
 Run the simulation!
 ~~~~~~~~~~~~~~~~~~~
