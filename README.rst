@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="build_the_docks/logo.svg" alt="logo" width="400"/>
+  <img src="build_the_docks/logo_f.svg" alt="logo" width="400"/>
 </p>
 
 MMODES
