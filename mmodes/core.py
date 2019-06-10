@@ -245,17 +245,16 @@ class Consortium():
         -> run() is the main method, which controls the simulation.
         *-> plot_comm() is a function in "vis" dependency required to plot the output
     '''
-    def __init__(self, media = {}, models = {}, max_growth = 10, death_rate = 0,
-    v = 1, timeStep = 0.1, mets_def = [], defaultKm = 0.01, defaultVmax = 20, stcut = 1e-4,
-    title = "draft_cons", mets_to_plot = [], work_based_on = "id", manifest = "", comets_output = False):
+    def __init__(self, media = {}, models = {}, max_growth = 10, v = 1,
+    mets_def = [], stcut = 1e-8, title = "draft_cons", mets_to_plot = [],
+    work_based_on = "id", manifest = "", comets_output = False):
+        self.identifier = "name" if work_based_on.lower() in ["name", "names"] else "id"
         self.models = models
         self.v = v # volume is in liters
         self.max_growth = max_growth
         self.__media = {}
         self.media = self.set_media(media, concentration = True) # dict met.id : concentration
         self.mets_def = self.set_dMetabolites(mets_def) # dict of dMetabolite objects
-        self.Km = defaultKm
-        self.Vmax = defaultVmax
         self.T = [0.]
         self.stopDFBA = (False, "not running yet!")
         self.stcut = stcut
@@ -264,7 +263,6 @@ class Consortium():
         self.orgs_to_plot = ""
         self.manifest = manifest
         self.comets = comets_output
-        self.identifier = "name" if work_based_on.lower() in ["name", "names"] else "id"
         return
 
     def __str__(self):
@@ -334,7 +332,6 @@ class Consortium():
                 warnings.warn(f"\nMetabolite {met} wasn't added to media.")
         return
 
-    # TODO: better defined as setter, with a decorator.
     def set_media(self, media, concentration = False):
         '''
         Set self.media, as extracellular metabolites in all models updated
@@ -367,7 +364,7 @@ class Consortium():
     def get_manifest(self, manifest):
         if manifest:
             if not self.comets:
-                return Manifest(models = self.models, media = self.media, fflux = "fluxes.tsv",
+                return Manifest(models = self.models, media = self.media, fflux = manifest,
                 fmedia = self.output, comets = False)
             else:
                 return Manifest(models = self.models, media = self.media, fman = manifest, comets = True)
@@ -480,9 +477,6 @@ class Consortium():
             else:
                 self.media[met] = 0
                 del(s[0])
-        if self.manifest:
-            self.manifest.write_media()
-            self.manifest.write_biomass()
         return
 
     def get_conditions(self):
@@ -503,7 +497,7 @@ class Consortium():
             self.stopDFBA = (True, "\nStationary state has been reached.\n")
         return
 
-    def run(self, maxT=10, integrator='vode', stepChoiceLevel=(0., 0.5, 1000.), verbose = False, outf = "plot.tsv", outp = "plot.png", plot = True):
+    def run(self, maxT=10, integrator='vode', stepChoiceLevel=(0., 0.5, 1000.), verbose = False, outf = "plot.tsv", outp = "plot.png", plot = True, actualize_every = float("-inf")):
         '''
         Solves systems of ODEs while updating values.
         INPUTS -> maxT = maxtime condition
@@ -511,6 +505,10 @@ class Consortium():
                 stepChoiceLevel=(0, max T step, max N steps) or (0,endValue, nSteps)
                                 depending on the 'integrator' parameter
                 verbose = bool, to output stuff
+                outf = path to tsv to write
+                outp = path to png to write
+                plot = bool, if plot should be generated (call to function)
+                actualize_every = float, interval time when outputs are not written
         1) Def f as one of object methods
         2) while no convergence:
             3) advances one step of ODE solver
@@ -525,6 +523,8 @@ class Consortium():
         self.stopDFBA = (False, "\nRunning...")
         self.output = outf
         self.outplot = outp
+        iotimes = 0
+        curr_act = actualize_every
         # 1. Set parameters of solver
         integratorSet = False
         nMaxSteps = stepChoiceLevel[2]
@@ -567,23 +567,31 @@ class Consortium():
                 raise NotIntegratorError("ODE Parameters weren't properly supplied.")
         if verbose:
             bar = ProBar(maxT)
+        manifest = ""
         if self.manifest and isinstance(self.manifest, str):
-            self.manifest = self.get_manifest(self.manifest)
-
+            manifest = self.get_manifest(self.manifest)
         # 2. ODE solver loop.
+        self.manifest = False
         while not self.stopDFBA[0] and self.T[-1] < maxT and step < nMaxSteps:
             # 2.1. Advances in solver
             step += 1
+            write = self.T[-1] >= iotimes*curr_act or iotimes == 0
+            if write:
+                self.manifest = manifest
+                iotimes += 1
+            else:
+                self.manifest = False
             solver.integrate(maxT, step=True)
             # 2.2. Update object consortium parameters
             self.update_true_ode(solver.y)
             # write media before appending time
-            self.write_plot_tsv()
+            if write: self.write_plot_tsv()
             self.T.append(solver.t)
             # 2.3. Check if stationary phase, else continue
             self.is_stable()
             if verbose:
                 bar.progress(self.T[-1])
+        self.manifest = manifest
         # 3. Plot and final message, to check why it was finished
         if plot:
             plot_comm(self)
@@ -618,3 +626,6 @@ class Consortium():
             for met in sorted(self.media):
                 line += str(self.media[met])+"\t"
             f.write(str(self.T[-1])+"\t"+line[:-1]+"\n")
+        if self.manifest:
+            self.manifest.write_media()
+            self.manifest.write_biomass()

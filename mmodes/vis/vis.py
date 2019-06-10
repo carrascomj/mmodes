@@ -55,7 +55,7 @@ def plot_comm(cons, color_set = "tableau20"):
         else:
             print(f"\nMetabolite {i} won't be plotted. Check your spelling of this metabolite.")
     if not mets_ok:
-        print("Metabolites weren't properly supplied in 'cons.mets_to_plot'. Plot won't be generated!")
+        print("Metabolites weren't properly supplied in 'mets_to_plot' parameter. Plot won't be generated!")
         return False
 
     # Prepare dataframe

@@ -54,7 +54,7 @@ def load_model(model_path):
         # A cobra model was passed as argument
         model = model_path
     else:
-        wfilt("ignore", category=UserWarning) # although sbml warnings aren't warnings...
+        #wfilt("ignore", category=UserWarning) # sbml warnings aren't warnings...
         try:
             model = cobra.io.load_json_model(model_path)
         except:
