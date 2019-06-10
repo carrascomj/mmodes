@@ -22,6 +22,7 @@ isolated or in a consortium.
    usage/quickstart
    objects/consortium
    objects/dModel
+   objects/experiment
 
 
 Indices and tables

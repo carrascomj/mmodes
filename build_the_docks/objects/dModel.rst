@@ -1,4 +1,4 @@
-.. dModel_obj:
+.. _dModel_obj:
 
 The dModel Object
 =================

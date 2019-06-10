@@ -16,7 +16,7 @@ is provided as example on the `ModelsInput <https://github.com/carrascomj/mmodes
 .. code:: python3
 
     from mmodes import Consortium, dMetabolite
-    cons = Consortium(mets_to_plot = ["glc_D[e]", "ac[e]"])
+    cons = Consortium(mets_to_plot = ["thr_L[e]", "ac[e]"])
 
 **mets_to_plot** parameter is supplied to later plot these metabolites.
 Now, we add the model to the Consortium object.
@@ -28,7 +28,7 @@ Now, we add the model to the Consortium object.
     # to assign kinetic parameters
     # for instance, https://www.ncbi.nlm.nih.gov/pubmed/18791026?dopt=Abstract
     glc = dMetabolite(id = "glc_D[e]", Km = 14.8, Vmax = 0.13)
-    cons.add_model(path_to_model, 0.001, dMets = {glc.id: glc})
+    cons.add_model(path_to_model, 0.0003, dMets = {glc.id: glc})
 
 More information of Consortium class can be found on :doc:`../objects/consortium`.
 
@@ -67,3 +67,13 @@ The last step is running the simulation.
 
 As demonstrated, MMODES allows running a dynamic (p)FBA simulation with a few
 lines of code. A TSV file and a plot should've been generated on the working directory.
+
+.. image:: plot_example.png
+   :width: 600px
+   :alt: MMDOES logotype
+
+
+| The next steps into MMODES should be taking a glimpse at :doc:`../objects/consortium`.
+
+Also, :doc:`../objects/experiment` demonstrates how the Consortium class can
+be extended to ease even more the configuration of microbial community simulations.
