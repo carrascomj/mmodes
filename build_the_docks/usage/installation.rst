@@ -17,7 +17,7 @@ Usually, the *--user* flag is required. On a bash shell:
 
 Build from SOURCE
 ~~~~~~~~~~~~~~~~~
-Otherwise, you can build from the :ref:`GitHub repository`_. `COBRApy <https://opencobra.github.io/cobrapy/>`_
+Otherwise, you can build from the `GitHub repository <https://github.com/carrascomj/mmodes>`_. `COBRApy <https://opencobra.github.io/cobrapy/>`_
 version used is 15.2. `Scipy <https://www.scipy.org/>`_, `numpy <https://www.numpy.org/>`_,
 `matplotlib <https://matplotlib.org/>`_ and `dill <https://pypi.org/project/dill/>`_
 are also required. A cobra version >= 14 should also work, albeit not being guaranteed.
