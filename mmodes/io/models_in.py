@@ -14,7 +14,7 @@
 
 import cobra
 import os, re, sys
-from warnings import filterwarnings as wfilt
+import warnings
 # global variables that refers to not yet loaded packages
 np = 0
 cobrunion = 0
@@ -54,17 +54,21 @@ def load_model(model_path):
         # A cobra model was passed as argument
         model = model_path
     else:
-        #wfilt("ignore", category=UserWarning) # sbml warnings aren't warnings...
-        try:
-            model = cobra.io.load_json_model(model_path)
-        except:
+        # Since libsbml "warnings" aren't warnings, walls of text are printed to
+        # screen even when filtering when the read_sbml_model function fails to
+        # read the file.
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
             try:
-                model = cobra.io.load_matlab_model(model_path)
+                model = cobra.io.load_json_model(model_path)
             except:
-                # read_sbml is the last one to avoid noisy baffling warnings
-                # when it fails, even when it's catched by except. I guess it'll
-                # be fixed on future COBRApy versions, hopefully.
-                model = cobra.io.read_sbml_model(model_path)
+                try:
+                    model = cobra.io.load_matlab_model(model_path)
+                except:
+                    # read_sbml is the last one to avoid noisy baffling warnings
+                    # when it fails, even when it's catched by except. I guess it'll
+                    # be fixed on future COBRApy versions, hopefully.
+                    model = cobra.io.read_sbml_model(model_path)
     return model
 
 class ProBar():
