@@ -376,10 +376,10 @@ class Consortium():
         Michaellis menten computation of lower bound
         '''
         if v == None:
-            v = self.Vmax
+            v = self.Vmax # concentration / time
         if k == None:
-            k = self.Km
-        return (-c*v)/(k*c)
+            k = self.Km # concentration
+        return (-c*v)/(self.v*k)+c)) # c is amount (mmol), so we multiply per v
 
     def dinamicpFBA(self, t, log_texts = False):
         '''
