@@ -371,15 +371,14 @@ class Consortium():
         else:
             return ""
 
-    def mm(self, c, v=None, k=None):
+    def mm(self, c, v, k):
         '''
-        Michaellis menten computation of lower bound
+        Michaelis Menten computation of lower bound. It assumes uptake is always
+        computed as lower bound in exchange reactions.
+        INPUTS -> floats: c (amount), v (concentration/time), k (concentration).
+        OUTPUT -> float (amount/time)
         '''
-        if v == None:
-            v = self.Vmax # concentration / time
-        if k == None:
-            k = self.Km # concentration
-        return (-c*v)/(self.v*k)+c)) # c is amount (mmol), so we multiply per v
+        return (-c*v)/(c/self.v+k)
 
     def dinamicpFBA(self, t, log_texts = False):
         '''
