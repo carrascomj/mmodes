@@ -5,7 +5,7 @@ def readme():
         return f.read()
 
 setup(name='mmodes',
-      version='0.2.4',
+      version='0.2.5',
       description='Metabolic Models based Ordinary Differential Equations Simulation',
       author='Jorge Carrasco Muriel',
       author_email='jorge.cmuriel@alumnos.upm.es',
