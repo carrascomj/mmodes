@@ -567,8 +567,10 @@ class Consortium():
         if verbose:
             bar = ProBar(maxT)
         manifest = ""
-        if self.manifest and isinstance(self.manifest, str):
+        if self.manifest and isinstance(self.manifest, str): # self.manifest is a string to be intitialized
             manifest = self.get_manifest(self.manifest)
+        elif self.manifest: # Consortium has already been run with manifest
+            manifest = dcp(self.manifest)
         # 2. ODE solver loop.
         self.manifest = False
         while not self.stopDFBA[0] and self.T[-1] < maxT and step < nMaxSteps:
