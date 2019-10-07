@@ -10,16 +10,17 @@
 import os
 import numpy as np
 from copy import deepcopy as dcp
-pd = 0 # pandas
-plt = 0 # matplolib.pyplot
+
+pd = 0  # pandas
+plt = 0  # matplolib.pyplot
 
 
-def plot_comm(cons, color_set = "tableau20"):
-    '''
+def plot_comm(cons, color_set="tableau20"):
+    """
     Plots the concentration of given microorganisms and metabolites
     INPUT -> cons: MMODES consortium object already simulated
     OUTPUT -> returns nothing, generates a plot in 'cons.outplot'
-    '''
+    """
     # Call always after cons.runn()!
     if not hasattr(cons, "outplot"):
         print("Consortium object must run before analyzing the output of the run!")
@@ -31,21 +32,61 @@ def plot_comm(cons, color_set = "tableau20"):
     if not pd:
         import pandas as pd
 
-
     title = cons.title
     path = cons.output
     output = cons.outplot
     pallettes = {
         # TODO: maybe, this should be implemented with palletable...
         # some colors to plot...
-        "colors_hex_2" : ["#ff8c00", "#a020f0", "#00ff00", "#ffff00", "#7a8b8b", "#cd5555", "#1e90ff", "#787878", "#ff7f50", "#000000"],
+        "colors_hex_2": [
+            "#ff8c00",
+            "#a020f0",
+            "#00ff00",
+            "#ffff00",
+            "#7a8b8b",
+            "#cd5555",
+            "#1e90ff",
+            "#787878",
+            "#ff7f50",
+            "#000000",
+        ],
         # or nominal data color scheme found in http://geog.uoregon.edu/datagraphics/color/Cat_12.txt
-        "colors_hex" : ["#ff7f00", "#32ff00", "#19b2ff", "#654cff", "#e51932", "#000000", "#ffff32", "#ff99bf", "#ccbfff", "#a5edff", "#b2ff8c", "#ffff99", "#ffbf7f"],
+        "colors_hex": [
+            "#ff7f00",
+            "#32ff00",
+            "#19b2ff",
+            "#654cff",
+            "#e51932",
+            "#000000",
+            "#ffff32",
+            "#ff99bf",
+            "#ccbfff",
+            "#a5edff",
+            "#b2ff8c",
+            "#ffff99",
+            "#ffbf7f",
+        ],
         # or tableau20 http://tableaufriction.blogspot.com/2012/11/finally-you-can-use-tableau-data-colors.html
-        "tableau20" : ["#1F77B4","#FF7F0E", "#2CA02C", "#D62728", "#9467BD", "#8C564B", "#7F7F7F", "#E377C2", "#17BECF", "#BCBD22", "#AEC7E8", "#98DF8A", "#C5B0D5", "#F7B6D2", "#DBDB8D"]
+        "tableau20": [
+            "#1F77B4",
+            "#FF7F0E",
+            "#2CA02C",
+            "#D62728",
+            "#9467BD",
+            "#8C564B",
+            "#7F7F7F",
+            "#E377C2",
+            "#17BECF",
+            "#BCBD22",
+            "#AEC7E8",
+            "#98DF8A",
+            "#C5B0D5",
+            "#F7B6D2",
+            "#DBDB8D",
+        ],
     }
     colors = pallettes[color_set]
-    to_plot=pd.read_csv(path, sep='\t', header = 0)
+    to_plot = pd.read_csv(path, sep="\t", header=0)
 
     # Check if metabolites where correctly specified
     mets_ok = False
@@ -53,57 +94,68 @@ def plot_comm(cons, color_set = "tableau20"):
         if i in to_plot:
             mets_ok = True
         else:
-            print(f"\nMetabolite {i} won't be plotted. Check your spelling of this metabolite.")
+            print(
+                f"\nMetabolite {i} won't be plotted. Check your spelling of this metabolite."
+            )
     if not mets_ok:
-        print("Metabolites weren't properly supplied in 'mets_to_plot' parameter. Plot won't be generated!")
+        print(
+            "Metabolites weren't properly supplied in 'mets_to_plot' parameter. Plot won't be generated!"
+        )
         return False
 
     # Prepare dataframe
-    for col in to_plot: # leave just selected metabolites and biomasses
-        if col not in cons.mets_to_plot and col not in cons.orgs_to_plot and col != "time":
+    for col in to_plot:  # leave just selected metabolites and biomasses
+        if (
+            col not in cons.mets_to_plot
+            and col not in cons.orgs_to_plot
+            and col != "time"
+        ):
             del to_plot[col]
-    to_plot.loc[:, to_plot.columns != 'time'] = to_plot.loc[:, to_plot.columns != 'time'] / cons.v # return concentrations
+    to_plot.loc[:, to_plot.columns != "time"] = (
+        to_plot.loc[:, to_plot.columns != "time"] / cons.v
+    )  # return concentrations
 
     # Plot it over a loop
     fig, ax1 = plt.subplots()
     t = to_plot.time
     i = 0
     for col in to_plot:
-        if 0 < i < len(cons.orgs_to_plot) + 1: # plotting biomasses
+        if 0 < i < len(cons.orgs_to_plot) + 1:  # plotting biomasses
             s1 = to_plot[col]
-            ax1.plot(t, s1, colors[i], alpha = 0.8)
-        elif i >= len(cons.orgs_to_plot) + 1: # plotting metabolites
-            if i == len(cons.orgs_to_plot) + 1: # set new y axis
-                ax1.set_xlabel("time(h)", fontstyle = 'italic')
-                ax1.set_ylabel('organisms (g/L)', fontstyle = 'italic')
-                ax1.tick_params('y')
+            ax1.plot(t, s1, colors[i], alpha=0.8)
+        elif i >= len(cons.orgs_to_plot) + 1:  # plotting metabolites
+            if i == len(cons.orgs_to_plot) + 1:  # set new y axis
+                ax1.set_xlabel("time(h)", fontstyle="italic")
+                ax1.set_ylabel("organisms (g/L)", fontstyle="italic")
+                ax1.tick_params("y")
                 ax2 = ax1.twinx()
             s2 = to_plot[col]
-            ax2.plot(t, s2, colors[i], linestyle='--')
-            ax2.set_ylabel('metabolites (mmol/L)', fontstyle = 'italic')
-            ax2.tick_params('y')
+            ax2.plot(t, s2, colors[i], linestyle="--")
+            ax2.set_ylabel("metabolites (mmol/L)", fontstyle="italic")
+            ax2.tick_params("y")
         i += 1
 
     # Metadata and save
-    plt.title(title, loc = 'left')
+    plt.title(title, loc="left")
     N = 6
     ymin, ymax = ax1.get_ylim()
     ax1.set_yticks(np.round(np.linspace(0, ymax, N), 5))
     ymin, ymax = ax2.get_ylim()
     ax2.set_yticks(np.round(np.linspace(0, ymax, N), 5))
-    ax1.grid(True, 'major', ls='-', color = 'grey', alpha=.3)
+    ax1.grid(True, "major", ls="-", color="grey", alpha=0.3)
     ax1.legend(loc=6)
     ax2.legend(loc=2)
     fig.tight_layout()
-    plt.savefig(output, dpi = 300)
+    plt.savefig(output, dpi=300)
     return
 
+
 def walkplot(cons):
-    '''
+    """
     Interactive function to walk through the metabolites in the media. It prints
     a growth plot of the consortium for each four metabolites.
     INPUT -> cons: MMODES consortium object already simulated
-    '''
+    """
     # Call always after cons.runn()!
     if not hasattr(cons, "outplot"):
         print("Consortium object must run before analyzing the output of the run!")
@@ -119,10 +171,10 @@ def walkplot(cons):
     mets = [k for k in cons.media]
     # loop over metabolites, plot them and let the user close the window
     for m in range(0, len(mets), 4):
-        cons.mets_to_plot = [mets[m], mets[m+1], mets[m+2], mets[m+3]]
+        cons.mets_to_plot = [mets[m], mets[m + 1], mets[m + 2], mets[m + 3]]
         plot_comm(cons)
         plt.show()
-        print("Image number", m/4)
+        print("Image number", m / 4)
 
     # clean temporary files, return to orginal parameters
     plt.close("all")
@@ -131,29 +183,31 @@ def walkplot(cons):
     cons.outplot = original_outplot
     return
 
-def find_active_mets(cons, sign = "both", colors = True):
-    '''
+
+def find_active_mets(cons, sign="both", colors=True):
+    """
     Function that prints to screen metabolites that have changed during the simulation
     sorted by proportional value of change (or absolute value, if initial condition is 0).
     INPUTS -> cons: MMODES consortium object already simulated;
               sign: one of ["both", "+", "-"], it prints both, positive or negative increments.
     OUTPUT -> pandas DataFrame, metabolites ordered by absolute value of change.
-    '''
+    """
     global pd
     if not pd:
         import pandas as pd
+
     def keysort(elem):
-        '''Key function to sort the output'''
+        """Key function to sort the output"""
         if elem[1] == 0:
             return abs(float(elem[3][10:-10]))
         else:
-            return abs(float(elem[3][10:-10]))/elem[1]
+            return abs(float(elem[3][10:-10])) / elem[1]
 
     def keysortbw(elem):
         if elem[1] == 0:
             return abs(float(elem[3]))
         else:
-            return abs(float(elem[3]))/elem[1]
+            return abs(float(elem[3])) / elem[1]
 
     # Call always after cons.runn()!
     if not hasattr(cons, "output"):
@@ -161,30 +215,32 @@ def find_active_mets(cons, sign = "both", colors = True):
         return
 
     if colors:
-        colors = ["\033[1;32;40m", "\033[1;31;40m","\033[0m"]
+        colors = ["\033[1;32;40m", "\033[1;31;40m", "\033[0m"]
     else:
         colors = ["", "", ""]
 
-    sim_tsv = pd.read_csv(cons.output, sep = "\t")
-    nrow = sim_tsv.shape[0]-1
+    sim_tsv = pd.read_csv(cons.output, sep="\t")
+    nrow = sim_tsv.shape[0] - 1
     table_print = []
     for col in sim_tsv.columns:
-        if col == 'time':
+        if col == "time":
             continue
         val0 = sim_tsv[col][0]
         valn = sim_tsv[col][nrow]
-        increment = valn-val0
+        increment = valn - val0
         if increment > 0 and sign != "-":
-            increment = colors[0] + str(val0-valn) + colors[2]
+            increment = colors[0] + str(val0 - valn) + colors[2]
         elif increment < 0 and sign != "+":
-            increment = colors[1] + str(val0-valn) + colors[2]
+            increment = colors[1] + str(val0 - valn) + colors[2]
         else:
             continue
         table_print.append((col, val0, valn, increment))
     if colors[0]:
-        table_print = sorted(table_print, key = keysort, reverse = True)
+        table_print = sorted(table_print, key=keysort, reverse=True)
     else:
-        table_print = sorted(table_print, key = keysortbw, reverse = True)
+        table_print = sorted(table_print, key=keysortbw, reverse=True)
 
-    table_print = pd.DataFrame(table_print, columns = ("Metabolite", "Initial Value", "Final Value", "Increment"))
+    table_print = pd.DataFrame(
+        table_print, columns=("Metabolite", "Initial Value", "Final Value", "Increment")
+    )
     return table_print
