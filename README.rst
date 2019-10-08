@@ -1,8 +1,17 @@
 
 .. image:: build_the_docks/logo_f.svg
-   :width: 400px
+   :width: 500px
    :alt: MMDOES logotype
    :align: center
+
+.. image:: https://img.shields.io/pypi/v/mmodes.svg
+   :target:  https://pypi.org/project/mmodes/
+   :alt: Current PyPI Version
+
+.. image:: https://img.shields.io/badge/code%20style-black-000000.svg
+   :target: https://github.com/ambv/black
+   :alt: Black
+
 
 What is MMODES?
 ===============
