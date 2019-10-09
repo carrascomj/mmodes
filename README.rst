@@ -21,7 +21,7 @@ an straight-forward framework to run dynamic simulations of metabolic models com
 using `COBRApy <https://opencobra.github.io/cobrapy/>`_ and `Scipy <https://www.scipy.org/>`_.
 
 It implements a version of dFBA. The scipy ODE
-implementation of the script was inspired by `DAPHNE <https://github.com/libretro/daphne/tree/master/daphne>`__,
+implementation of the script was inspired by `DAPHNE <https://github.com/QTB-HHU/daphne_ecoli-diauxie>`__,
 although this code was built for a general case. It also provides I/O utilities
 to generate and parse COMETS-like files and to manage "languages" of GEM models.
 
