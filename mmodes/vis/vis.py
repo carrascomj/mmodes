@@ -8,11 +8,11 @@
 # Date of first version: 14/03/2019
 
 import os
-import numpy as np
 from copy import deepcopy as dcp
 
-pd = 0  # pandas
-plt = 0  # matplolib.pyplot
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
 
 
 def plot_comm(cons, color_set="tableau20"):
@@ -23,14 +23,8 @@ def plot_comm(cons, color_set="tableau20"):
     """
     # Call always after cons.runn()!
     if not hasattr(cons, "outplot"):
-        print("Consortium object must run before analyzing the output of the run!")
+        print("Consortium must run before analyzing the output of the run!")
         return
-    global plt
-    if not plt:
-        import matplotlib.pyplot as plt
-    global pd
-    if not pd:
-        import pandas as pd
 
     title = cons.title
     path = cons.output
@@ -95,11 +89,13 @@ def plot_comm(cons, color_set="tableau20"):
             mets_ok = True
         else:
             print(
-                f"\nMetabolite {i} won't be plotted. Check your spelling of this metabolite."
+                f"\nMetabolite {i} won't be plotted. "
+                "Check your spelling of this metabolite."
             )
     if not mets_ok:
         print(
-            "Metabolites weren't properly supplied in 'mets_to_plot' parameter. Plot won't be generated!"
+            "Metabolites weren't properly supplied in 'mets_to_plot' "
+            "parameter. Plot won't be generated!"
         )
         return False
 
@@ -122,7 +118,7 @@ def plot_comm(cons, color_set="tableau20"):
     for col in to_plot:
         if 0 < i < len(cons.orgs_to_plot) + 1:  # plotting biomasses
             s1 = to_plot[col]
-            ax1.plot(t, s1, colors[i], alpha=0.8)
+            ax1.plot(t, s1, colors[i], alpha=0.8, label=col)
         elif i >= len(cons.orgs_to_plot) + 1:  # plotting metabolites
             if i == len(cons.orgs_to_plot) + 1:  # set new y axis
                 ax1.set_xlabel("time(h)", fontstyle="italic")
@@ -130,7 +126,7 @@ def plot_comm(cons, color_set="tableau20"):
                 ax1.tick_params("y")
                 ax2 = ax1.twinx()
             s2 = to_plot[col]
-            ax2.plot(t, s2, colors[i], linestyle="--")
+            ax2.plot(t, s2, colors[i], linestyle="--", label=col)
             ax2.set_ylabel("metabolites (mmol/L)", fontstyle="italic")
             ax2.tick_params("y")
         i += 1
@@ -158,7 +154,7 @@ def walkplot(cons):
     """
     # Call always after cons.runn()!
     if not hasattr(cons, "outplot"):
-        print("Consortium object must run before analyzing the output of the run!")
+        print("Consortium must run before analyzing the output of the run!")
         return
     global plt
     if not plt:
@@ -211,7 +207,7 @@ def find_active_mets(cons, sign="both", colors=True):
 
     # Call always after cons.runn()!
     if not hasattr(cons, "output"):
-        print("Consortium object must run before analyzing the output of the run!")
+        print("Consortium must run before analyzing the output of the run!")
         return
 
     if colors:
@@ -241,6 +237,7 @@ def find_active_mets(cons, sign="both", colors=True):
         table_print = sorted(table_print, key=keysortbw, reverse=True)
 
     table_print = pd.DataFrame(
-        table_print, columns=("Metabolite", "Initial Value", "Final Value", "Increment")
+        table_print,
+        columns=("Metabolite", "Initial Value", "Final Value", "Increment"),
     )
     return table_print
